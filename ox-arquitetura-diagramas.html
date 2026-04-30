@@ -1,0 +1,409 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>OX Field Service — Diagramas de Arquitetura</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/mermaid/10.9.0/mermaid.min.js"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: #0f172a;
+    color: #e2e8f0;
+    padding: 24px 16px;
+    line-height: 1.6;
+  }
+  .container { max-width: 1100px; margin: 0 auto; }
+  header {
+    text-align: center;
+    margin-bottom: 40px;
+    padding-bottom: 24px;
+    border-bottom: 1px solid #1e293b;
+  }
+  h1 {
+    font-size: 28px;
+    font-weight: 700;
+    background: linear-gradient(135deg, #60a5fa, #a78bfa);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    margin-bottom: 8px;
+  }
+  .subtitle { color: #94a3b8; font-size: 14px; }
+  section {
+    background: #1e293b;
+    border: 1px solid #334155;
+    border-radius: 12px;
+    padding: 24px;
+    margin-bottom: 24px;
+  }
+  h2 {
+    color: #f1f5f9;
+    font-size: 20px;
+    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .badge {
+    background: #3b82f6;
+    color: white;
+    font-size: 12px;
+    padding: 2px 10px;
+    border-radius: 999px;
+    font-weight: 600;
+  }
+  .description {
+    color: #94a3b8;
+    font-size: 14px;
+    margin-bottom: 20px;
+  }
+  .diagram-wrapper {
+    background: #0f172a;
+    border-radius: 8px;
+    padding: 20px;
+    overflow-x: auto;
+    border: 1px solid #334155;
+  }
+  .mermaid {
+    text-align: center;
+    min-width: 100%;
+  }
+  footer {
+    text-align: center;
+    color: #64748b;
+    font-size: 12px;
+    margin-top: 32px;
+    padding-top: 24px;
+    border-top: 1px solid #1e293b;
+  }
+  @media (max-width: 600px) {
+    h1 { font-size: 22px; }
+    section { padding: 16px; }
+    .diagram-wrapper { padding: 12px; }
+  }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <header>
+    <h1>OX Field Service</h1>
+    <p class="subtitle">Diagramas de Arquitetura · Ecossistema Completo</p>
+  </header>
+
+  <section>
+    <h2><span class="badge">01</span> Arquitetura Geral do Sistema</h2>
+    <p class="description">Visão macro: clientes, backend modular, integrações externas e os 4 motores principais.</p>
+    <div class="diagram-wrapper">
+      <div class="mermaid">
+graph TB
+    subgraph Clients["👥 CLIENTES"]
+        FA["📱 Flutter App<br/>Cliente"]
+        FW["📱 Flutter App<br/>Trabalhador"]
+        RA["💻 React Admin<br/>OX Team"]
+    end
+
+    subgraph Gateway["🚪 API GATEWAY"]
+        API["NestJS API<br/>JWT + RBAC"]
+    end
+
+    subgraph Backend["🏗️ BACKEND - MODULAR MONOLITH"]
+        PE["🔵 Project<br/>Engine"]
+        WE["🟢 Workforce<br/>Engine"]
+        PAY["🟡 Payment<br/>Engine"]
+        MH["🟣 Materials<br/>Hub"]
+        NOT["🔔 Notifications"]
+        SM["⚙️ State Machine<br/>XState"]
+        EV["📡 Event Bus<br/>BullMQ"]
+    end
+
+    subgraph Data["💾 CAMADA DE DADOS"]
+        PG[("🐘 PostgreSQL<br/>Core + Escrow")]
+        RD[("⚡ Redis<br/>Cache + Filas")]
+        ST["🗂️ Supabase Storage<br/>Fotos/Vídeos"]
+    end
+
+    subgraph External["🌐 SERVIÇOS EXTERNOS"]
+        SC["💳 Stripe Connect<br/>Split Automático"]
+        ML["💰 Mollie<br/>Pagamentos EU"]
+        FCM["📲 Firebase FCM<br/>Push"]
+        CHAT["💬 Stream Chat"]
+    end
+
+    FA --> API
+    FW --> API
+    RA --> API
+
+    API --> PE
+    API --> WE
+    API --> PAY
+    API --> MH
+
+    PE <--> SM
+    PAY <--> SM
+    PE --> EV
+    PAY --> EV
+    EV --> NOT
+
+    PE --> PG
+    WE --> PG
+    PAY --> PG
+    MH --> PG
+    EV --> RD
+    PE --> ST
+
+    PAY --> SC
+    PAY --> ML
+    NOT --> FCM
+    API --> CHAT
+
+    style PE fill:#1e3a8a,stroke:#3b82f6,color:#fff
+    style WE fill:#14532d,stroke:#22c55e,color:#fff
+    style PAY fill:#713f12,stroke:#eab308,color:#fff
+    style MH fill:#581c87,stroke:#a855f7,color:#fff
+    style SM fill:#7c2d12,stroke:#f97316,color:#fff
+    style EV fill:#831843,stroke:#ec4899,color:#fff
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2><span class="badge">02</span> Estrutura Modular do Backend</h2>
+    <p class="description">Organização interna do monolito modular usando Domain-Driven Design.</p>
+    <div class="diagram-wrapper">
+      <div class="mermaid">
+graph LR
+    subgraph SRC["📁 /src"]
+        subgraph Modules["📦 /modules"]
+            AUTH["🔐 auth<br/>JWT + RBAC"]
+            USR["👤 users<br/>Cliente/Worker/Admin"]
+            PRJ["📋 projects<br/>CRUD + Status"]
+            PHS["📸 phases<br/>Checklists + Evidências"]
+            MTC["🎯 matching<br/>Algoritmo Seleção"]
+            CTR["📝 contracts<br/>Contratos Digitais"]
+            ESC["🔒 escrow<br/>Pagamentos Bloqueados"]
+            PAY["💸 payments<br/>Split + Stripe"]
+            MAT["🛒 materials<br/>Hub - Fase 2"]
+            NOT["🔔 notifications<br/>FCM + Eventos"]
+        end
+        subgraph Common["⚙️ /common"]
+            STM["State Machine"]
+            EVT["Event Bus"]
+            GRD["Guards RBAC"]
+            INT["Interceptors"]
+        end
+    end
+
+    AUTH --> GRD
+    PRJ --> STM
+    PHS --> STM
+    ESC --> STM
+    PAY --> STM
+    PRJ --> EVT
+    PHS --> EVT
+    PAY --> EVT
+    NOT --> EVT
+
+    style AUTH fill:#1e293b,stroke:#64748b,color:#fff
+    style PRJ fill:#1e3a8a,stroke:#3b82f6,color:#fff
+    style PHS fill:#1e3a8a,stroke:#3b82f6,color:#fff
+    style PAY fill:#713f12,stroke:#eab308,color:#fff
+    style ESC fill:#713f12,stroke:#eab308,color:#fff
+    style MAT fill:#581c87,stroke:#a855f7,color:#fff
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2><span class="badge">03</span> State Machine do Projeto</h2>
+    <p class="description">Estados explícitos e transições válidas — núcleo da segurança financeira.</p>
+    <div class="diagram-wrapper">
+      <div class="mermaid">
+stateDiagram-v2
+    [*] --> draft: Cliente cria
+    draft --> in_validation: Submete projeto
+    in_validation --> matched: OX valida + matching
+    in_validation --> rejected: OX rejeita
+    matched --> contract_signed: Worker aceita
+    contract_signed --> active_escrow: 💳 Pagamento bloqueado
+    active_escrow --> in_execution: Worker inicia
+    in_execution --> closing: Todas fases validadas
+    closing --> closed: Cliente confirma
+    closed --> [*]
+    rejected --> [*]
+
+    note right of active_escrow
+        💰 Dinheiro retido
+        no Stripe Connect
+    end note
+
+    note right of in_execution
+        Loop por fase:
+        upload → review → validate
+    end note
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2><span class="badge">04</span> State Machine de Fase (Crítico para Pagamento)</h2>
+    <p class="description">Pagamento só é liberado quando o estado atinge "validated". Regra inviolável.</p>
+    <div class="diagram-wrapper">
+      <div class="mermaid">
+stateDiagram-v2
+    [*] --> pending
+    pending --> in_progress: Worker inicia fase
+    in_progress --> evidence_uploaded: 📸 Upload fotos/vídeo
+    evidence_uploaded --> under_review: Cliente notificado
+    under_review --> validated: ✅ Cliente aprova
+    under_review --> rejected: ❌ Cliente rejeita
+    rejected --> in_progress: Worker refaz
+    validated --> [*]: 💰 Pagamento liberado
+
+    note right of validated
+        SOMENTE neste estado
+        o pagamento é processado
+    end note
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2><span class="badge">05</span> Fluxo de Eventos: Fase Validada</h2>
+    <p class="description">Quando uma fase é validada, uma cadeia de eventos é disparada automaticamente.</p>
+    <div class="diagram-wrapper">
+      <div class="mermaid">
+sequenceDiagram
+    participant C as 👤 Cliente
+    participant API as 🚪 API
+    participant PE as 🔵 Project Engine
+    participant EV as 📡 Event Bus
+    participant PAY as 🟡 Payment Engine
+    participant SC as 💳 Stripe Connect
+    participant FCM as 📲 FCM
+    participant W as 👷 Worker
+
+    C->>API: POST /phases/:id/validate
+    API->>PE: validatePhase()
+    PE->>PE: Update state → "validated"
+    PE->>EV: Emit "PhaseValidated"
+
+    par Pagamento
+        EV->>PAY: Process release
+        PAY->>SC: Transfer split
+        SC-->>PAY: ✅ Confirmation
+    and Notificações
+        EV->>FCM: Notify worker
+        FCM-->>W: 📲 "Pagamento liberado"
+        EV->>FCM: Notify client
+        FCM-->>C: 📲 "Fase aprovada"
+    and Reputação
+        EV->>PE: Update worker rating
+    end
+
+    PAY-->>API: All done
+    API-->>C: 200 OK
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2><span class="badge">06</span> Stripe Connect: Split Automático</h2>
+    <p class="description">Como o pagamento de €1.000 é distribuído automaticamente entre as partes.</p>
+    <div class="diagram-wrapper">
+      <div class="mermaid">
+graph LR
+    C["👤 Cliente<br/>Paga €1.000"] --> SC["💳 Stripe Connect<br/>Escrow"]
+    SC -.->|"Bloqueado<br/>até validação"| SC
+
+    SC --> W["👷 Trabalhador<br/>€700 (70%)"]
+    SC --> S["🏪 Fornecedor<br/>€200 (20%)"]
+    SC --> OX["🏢 OX Commission<br/>€100 (10%)"]
+
+    style C fill:#1e3a8a,stroke:#3b82f6,color:#fff
+    style SC fill:#713f12,stroke:#eab308,color:#fff
+    style W fill:#14532d,stroke:#22c55e,color:#fff
+    style S fill:#14532d,stroke:#22c55e,color:#fff
+    style OX fill:#581c87,stroke:#a855f7,color:#fff
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2><span class="badge">07</span> Modelo de Dados (ERD Simplificado)</h2>
+    <p class="description">Relações principais entre as entidades core do sistema.</p>
+    <div class="diagram-wrapper">
+      <div class="mermaid">
+erDiagram
+    USERS ||--o{ PROJECTS : "creates"
+    USERS ||--o| WORKERS : "has profile"
+    PROJECTS ||--|{ PROJECT_PHASES : "contains"
+    PROJECT_PHASES ||--o{ PHASE_EVIDENCE : "has proofs"
+    PROJECTS ||--|| CONTRACTS : "generates"
+    WORKERS ||--o{ CONTRACTS : "signs"
+    CONTRACTS ||--|| ESCROW_TXNS : "secured by"
+    ESCROW_TXNS ||--o{ PAYMENTS : "splits into"
+    WORKERS ||--o{ WORKER_RATINGS : "receives"
+    PROJECTS ||--o{ ORDERS : "requests"
+    SUPPLIERS ||--o{ ORDERS : "fulfills"
+
+    USERS {
+        uuid id PK
+        string role
+        string email
+    }
+    PROJECTS {
+        uuid id PK
+        uuid client_id FK
+        string status
+        decimal budget
+    }
+    PROJECT_PHASES {
+        uuid id PK
+        string status
+        decimal amount
+    }
+    ESCROW_TXNS {
+        uuid id PK
+        decimal amount
+        string status
+    }
+    PAYMENTS {
+        uuid id PK
+        string recipient_type
+        decimal amount
+    }
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    Diagramas gerados para a arquitetura OX Field Service · Modular Monolith + DDD + Event-Driven
+  </footer>
+
+</div>
+
+<script>
+  mermaid.initialize({
+    startOnLoad: true,
+    theme: 'dark',
+    themeVariables: {
+      darkMode: true,
+      background: '#0f172a',
+      primaryColor: '#1e293b',
+      primaryTextColor: '#e2e8f0',
+      primaryBorderColor: '#475569',
+      lineColor: '#64748b',
+      secondaryColor: '#334155',
+      tertiaryColor: '#1e293b'
+    },
+    flowchart: { curve: 'basis', padding: 20 },
+    sequence: { actorMargin: 50, width: 150 },
+    er: { layoutDirection: 'TB' }
+  });
+</script>
+
+</body>
+</html>

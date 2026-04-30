@@ -1,0 +1,540 @@
+openapi: 3.0.3
+info:
+  title: OX Field Service API
+  version: 1.0.0
+  description: API do ecossistema OX Field Services — MVP
+
+servers:
+  - url: http://localhost:3000
+    description: Local
+  - url: https://api.ox-service.com
+    description: Production
+
+security:
+  - bearerAuth: []
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    RegisterDto:
+      type: object
+      required: [name, email, password, role]
+      properties:
+        name:     { type: string, example: "João Silva" }
+        email:    { type: string, format: email }
+        password: { type: string, minLength: 8 }
+        phone:    { type: string, example: "+351912345678" }
+        role:     { type: string, enum: [client, worker, admin] }
+
+    LoginDto:
+      type: object
+      required: [email, password]
+      properties:
+        email:    { type: string, format: email }
+        password: { type: string }
+
+    AuthTokens:
+      type: object
+      properties:
+        accessToken:  { type: string }
+        refreshToken: { type: string }
+
+    User:
+      type: object
+      properties:
+        id:        { type: string, format: uuid }
+        name:      { type: string }
+        email:     { type: string }
+        phone:     { type: string }
+        role:      { type: string, enum: [client, worker, admin] }
+        createdAt: { type: string, format: date-time }
+
+    CreateProjectDto:
+      type: object
+      required: [title, budget, location]
+      properties:
+        title:    { type: string }
+        budget:   { type: number }
+        location: { type: string }
+        deadline: { type: string, format: date }
+        phases:
+          type: array
+          items:
+            type: object
+            required: [name, order, amount]
+            properties:
+              name:   { type: string }
+              order:  { type: integer }
+              amount: { type: number }
+
+    Project:
+      type: object
+      properties:
+        id:        { type: string, format: uuid }
+        clientId:  { type: string, format: uuid }
+        status:    { type: string, enum: [draft, in_validation, matched, contract_signed, active_escrow, in_execution, closing, closed, rejected] }
+        title:     { type: string }
+        budget:    { type: number }
+        location:  { type: string }
+        deadline:  { type: string, format: date }
+        createdAt: { type: string, format: date-time }
+        phases:
+          type: array
+          items: { $ref: '#/components/schemas/ProjectPhase' }
+
+    ProjectPhase:
+      type: object
+      properties:
+        id:        { type: string, format: uuid }
+        projectId: { type: string, format: uuid }
+        name:      { type: string }
+        status:    { type: string, enum: [pending, in_progress, evidence_uploaded, under_review, validated, rejected] }
+        order:     { type: integer }
+        amount:    { type: number }
+
+    UpdateStatusDto:
+      type: object
+      required: [event]
+      properties:
+        event:
+          type: string
+          enum: [SUBMIT, APPROVE, REJECT, ASSIGN, PAY, START, COMPLETE, CONFIRM]
+
+    Contract:
+      type: object
+      properties:
+        id:             { type: string, format: uuid }
+        projectId:      { type: string, format: uuid }
+        workerId:       { type: string, format: uuid }
+        totalAmount:    { type: number }
+        stripeIntentId: { type: string }
+        signedAt:       { type: string, format: date-time }
+
+    CreateContractDto:
+      type: object
+      required: [projectId, workerId]
+      properties:
+        projectId: { type: string, format: uuid }
+        workerId:  { type: string, format: uuid }
+
+    WorkerProfile:
+      type: object
+      properties:
+        id:               { type: string, format: uuid }
+        userId:           { type: string, format: uuid }
+        skills:           { type: array, items: { type: string } }
+        rating:           { type: number }
+        shelterCertified: { type: boolean }
+        available:        { type: boolean }
+        user:             { $ref: '#/components/schemas/User' }
+
+    UpdateWorkerDto:
+      type: object
+      properties:
+        skills:           { type: array, items: { type: string } }
+        available:        { type: boolean }
+        shelterCertified: { type: boolean }
+
+    PaymentIntentResponse:
+      type: object
+      properties:
+        clientSecret:    { type: string }
+        paymentIntentId: { type: string }
+        amount:          { type: number }
+
+    EscrowTxn:
+      type: object
+      properties:
+        id:         { type: string, format: uuid }
+        contractId: { type: string, format: uuid }
+        amount:     { type: number }
+        status:     { type: string, enum: [held, released, refunded] }
+        releasedAt: { type: string, format: date-time }
+
+    Error:
+      type: object
+      properties:
+        statusCode: { type: integer }
+        message:    { type: string }
+        error:      { type: string }
+
+paths:
+
+  # ── AUTH ──────────────────────────────────────────────────────────────────
+  /auth/register:
+    post:
+      tags: [Auth]
+      security: []
+      summary: Registrar novo usuário
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/RegisterDto' }
+      responses:
+        '201':
+          description: Usuário criado
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AuthTokens' }
+        '409':
+          description: Email já cadastrado
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
+  /auth/login:
+    post:
+      tags: [Auth]
+      security: []
+      summary: Login e retorno de tokens JWT
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/LoginDto' }
+      responses:
+        '200':
+          description: Tokens gerados
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AuthTokens' }
+        '401':
+          description: Credenciais inválidas
+
+  /auth/refresh:
+    post:
+      tags: [Auth]
+      security: []
+      summary: Renovar access token via refresh token
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [refreshToken]
+              properties:
+                refreshToken: { type: string }
+      responses:
+        '200':
+          description: Novo access token
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  accessToken: { type: string }
+        '401':
+          description: Refresh token inválido ou expirado
+
+  # ── PROJECTS ──────────────────────────────────────────────────────────────
+  /projects:
+    post:
+      tags: [Projects]
+      summary: Criar projeto (cliente)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateProjectDto' }
+      responses:
+        '201':
+          description: Projeto criado no status draft
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Project' }
+
+    get:
+      tags: [Projects]
+      summary: Listar projetos do usuário autenticado
+      parameters:
+        - in: query
+          name: status
+          schema:
+            type: string
+            enum: [draft, in_validation, matched, contract_signed, active_escrow, in_execution, closing, closed, rejected]
+      responses:
+        '200':
+          description: Lista de projetos
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/Project' }
+
+  /projects/{id}:
+    get:
+      tags: [Projects]
+      summary: Detalhes de um projeto
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Projeto com fases
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Project' }
+        '404':
+          description: Projeto não encontrado
+
+  /projects/{id}/status:
+    patch:
+      tags: [Projects]
+      summary: Transição de estado do projeto (via state machine)
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/UpdateStatusDto' }
+      responses:
+        '200':
+          description: Projeto com novo status
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Project' }
+        '400':
+          description: Transição inválida para o estado atual
+
+  # ── PHASES ────────────────────────────────────────────────────────────────
+  /projects/{id}/phases:
+    get:
+      tags: [Phases]
+      summary: Listar fases de um projeto
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Lista de fases ordenadas
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/ProjectPhase' }
+
+  /phases/{id}/status:
+    patch:
+      tags: [Phases]
+      summary: Atualizar status de uma fase
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [status]
+              properties:
+                status:
+                  type: string
+                  enum: [in_progress, evidence_uploaded, under_review, validated, rejected]
+      responses:
+        '200':
+          description: Fase atualizada
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ProjectPhase' }
+        '403':
+          description: Sem permissão
+
+  /phases/{id}/evidence:
+    post:
+      tags: [Phases]
+      summary: Upload de evidência (foto/vídeo) para uma fase
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file:
+                  type: string
+                  format: binary
+      responses:
+        '201':
+          description: Evidência salva
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:  { type: string, format: uuid }
+                  url: { type: string }
+        '400':
+          description: Arquivo inválido
+
+  # ── MATCHING ──────────────────────────────────────────────────────────────
+  /matching/{projectId}:
+    post:
+      tags: [Matching]
+      summary: Executar matching de workers para um projeto
+      parameters:
+        - in: path
+          name: projectId
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Lista dos melhores candidatos (máx. 5)
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/WorkerProfile' }
+
+  # ── CONTRACTS ─────────────────────────────────────────────────────────────
+  /contracts:
+    post:
+      tags: [Contracts]
+      summary: Criar contrato vinculando projeto e worker
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateContractDto' }
+      responses:
+        '201':
+          description: Contrato criado
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Contract' }
+
+  /contracts/{id}/sign:
+    post:
+      tags: [Contracts]
+      summary: Worker assina o contrato
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Contrato assinado com timestamp
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Contract' }
+        '403':
+          description: Apenas o worker do contrato pode assinar
+
+  # ── PAYMENTS ──────────────────────────────────────────────────────────────
+  /payments/create-intent:
+    post:
+      tags: [Payments]
+      summary: Criar PaymentIntent no Stripe (escrow) para um contrato
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [contractId]
+              properties:
+                contractId: { type: string, format: uuid }
+      responses:
+        '201':
+          description: Client secret para o front confirmar o pagamento
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PaymentIntentResponse' }
+
+  /payments/release/{phaseId}:
+    post:
+      tags: [Payments]
+      summary: Liberar pagamento da fase após validação (admin/sistema)
+      parameters:
+        - in: path
+          name: phaseId
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Split de pagamento executado
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/EscrowTxn' }
+        '400':
+          description: Fase não validada ou sem evidências
+
+  # ── WORKERS ───────────────────────────────────────────────────────────────
+  /workers/me:
+    get:
+      tags: [Workers]
+      summary: Perfil do worker autenticado
+      responses:
+        '200':
+          description: Perfil completo do worker
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/WorkerProfile' }
+
+    patch:
+      tags: [Workers]
+      summary: Atualizar perfil do worker
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/UpdateWorkerDto' }
+      responses:
+        '200':
+          description: Perfil atualizado
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/WorkerProfile' }
+
+  # ── WEBHOOKS ──────────────────────────────────────────────────────────────
+  /webhooks/stripe:
+    post:
+      tags: [Webhooks]
+      security: []
+      summary: Receber eventos do Stripe (payment_intent.succeeded, transfer.created, etc.)
+      parameters:
+        - in: header
+          name: stripe-signature
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: Evento processado
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  received: { type: boolean }
+        '400':
+          description: Assinatura inválida

@@ -1,0 +1,154 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  client
+  worker
+  admin
+}
+
+enum ProjectStatus {
+  draft
+  in_validation
+  matched
+  contract_signed
+  active_escrow
+  in_execution
+  closing
+  closed
+  rejected
+}
+
+enum PhaseStatus {
+  pending
+  in_progress
+  evidence_uploaded
+  under_review
+  validated
+  rejected
+}
+
+enum EscrowStatus {
+  held
+  released
+  refunded
+}
+
+model User {
+  id        String   @id @default(uuid())
+  authId    String   @unique // references auth.users.id (Supabase Auth)
+  role      UserRole
+  name      String
+  email     String   @unique
+  phone     String?
+  createdAt DateTime @default(now())
+
+  projects  Project[]
+  worker    Worker?
+  evidences PhaseEvidence[]
+  ratings   WorkerRating[]
+}
+
+model Worker {
+  id               String   @id @default(uuid())
+  userId           String   @unique
+  user             User     @relation(fields: [userId], references: [id])
+  skills           String[]
+  rating           Decimal  @default(0)
+  shelterCertified Boolean  @default(false)
+  available        Boolean  @default(true)
+
+  contracts Contract[]
+  ratings   WorkerRating[]
+}
+
+model Project {
+  id        String        @id @default(uuid())
+  clientId  String
+  client    User          @relation(fields: [clientId], references: [id])
+  status    ProjectStatus @default(draft)
+  title     String
+  budget    Decimal
+  location  String
+  deadline  DateTime?
+  createdAt DateTime      @default(now())
+
+  phases   ProjectPhase[]
+  contract Contract?
+}
+
+model ProjectPhase {
+  id        String      @id @default(uuid())
+  projectId String
+  project   Project     @relation(fields: [projectId], references: [id])
+  name      String
+  status    PhaseStatus @default(pending)
+  order     Int
+  amount    Decimal
+
+  evidences PhaseEvidence[]
+}
+
+model PhaseEvidence {
+  id         String       @id @default(uuid())
+  phaseId    String
+  phase      ProjectPhase @relation(fields: [phaseId], references: [id])
+  type       String
+  url        String
+  uploadedBy String
+  uploader   User         @relation(fields: [uploadedBy], references: [id])
+  uploadedAt DateTime     @default(now())
+}
+
+model Contract {
+  id             String    @id @default(uuid())
+  projectId      String    @unique
+  project        Project   @relation(fields: [projectId], references: [id])
+  workerId       String
+  worker         Worker    @relation(fields: [workerId], references: [id])
+  totalAmount    Decimal
+  stripeIntentId String?
+  signedAt       DateTime?
+
+  escrow EscrowTxn?
+}
+
+model EscrowTxn {
+  id         String       @id @default(uuid())
+  contractId String       @unique
+  contract   Contract     @relation(fields: [contractId], references: [id])
+  amount     Decimal
+  status     EscrowStatus @default(held)
+  releasedAt DateTime?
+
+  payments Payment[]
+}
+
+model Payment {
+  id               String    @id @default(uuid())
+  escrowId         String
+  escrow           EscrowTxn @relation(fields: [escrowId], references: [id])
+  recipientType    String
+  recipientId      String
+  amount           Decimal
+  stripeTransferId String?
+  paidAt           DateTime?
+}
+
+model WorkerRating {
+  id        String   @id @default(uuid())
+  workerId  String
+  worker    Worker   @relation(fields: [workerId], references: [id])
+  projectId String
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  score     Int
+  feedback  String?
+  createdAt DateTime @default(now())
+}

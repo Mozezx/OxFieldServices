@@ -8,11 +8,11 @@
 ## Sumário
 
 - ✅ [Fase 0 — Preparação do Ambiente](#fase-0--preparação-do-ambiente)
-- [Fase 1 — Modelagem e Design](#fase-1--modelagem-e-design)
-- [Fase 2 — Estrutura do Backend](#fase-2--estrutura-do-backend)
-- [Fase 3 — Banco de Dados](#fase-3--banco-de-dados)
-- [Fase 4 — Autenticação e RBAC](#fase-4--autenticação-e-rbac)
-- [Fase 5 — Módulo de Projetos + State Machine](#fase-5--módulo-de-projetos--state-machine)
+- ✅ [Fase 1 — Modelagem e Design](#fase-1--modelagem-e-design)
+- ✅ [Fase 2 — Estrutura do Backend](#fase-2--estrutura-do-backend)
+- ✅ [Fase 3 — Banco de Dados](#fase-3--banco-de-dados)
+- ✅ [Fase 4 — Autenticação e RBAC](#fase-4--autenticação-e-rbac)
+- ✅ [Fase 5 — Módulo de Projetos + State Machine](#fase-5--módulo-de-projetos--state-machine)
 - [Fase 6 — Upload de Evidências](#fase-6--upload-de-evidências)
 - [Fase 7 — POC do Stripe Connect (Escrow)](#fase-7--poc-do-stripe-connect-escrow)
 - [Fase 8 — Matching e Contratos](#fase-8--matching-e-contratos)
@@ -83,12 +83,14 @@ ox-field-services-3/
 
 ---
 
-## Fase 1 — Modelagem e Design
+## ✅ Fase 1 — Modelagem e Design
 
-**Duração estimada: 2–3 dias**
+**Duração estimada: 2–3 dias** → ✅ **Concluída** (wireframes ignorados — seguido para vibe coding)
 > Não escreva uma linha de código sem terminar esta fase.
 
-### 1.1 Modelar o banco de dados (ERD)
+### ✅ 1.1 Modelar o banco de dados (ERD)
+
+Arquivo gerado em `docs/erd.dbml`. Cole o conteúdo em **dbdiagram.io** para visualizar.
 
 Acesse **dbdiagram.io** e modele as tabelas abaixo:
 
@@ -179,7 +181,9 @@ Table worker_ratings {
 }
 ```
 
-### 1.2 Documentar os endpoints (API-First)
+### ✅ 1.2 Documentar os endpoints (API-First)
+
+Arquivo gerado em `docs/openapi.yaml`. Visualize em **editor.swagger.io** (cole o conteúdo do arquivo).
 
 Antes de codificar, defina os contratos da API. Use o **Swagger Editor** online (editor.swagger.io) ou um arquivo `openapi.yaml`:
 
@@ -209,7 +213,9 @@ GET    /workers/me                  # perfil do worker
 PATCH  /workers/me                  # atualizar perfil
 ```
 
-### 1.3 Wireframes das telas principais
+### ~~1.3 Wireframes das telas principais~~
+
+> **Ignorado** — produto suficientemente claro para seguir com vibe coding.
 
 Use o **Figma** (figma.com — grátis) e crie telas rápidas para:
 
@@ -235,11 +241,11 @@ Use o **Figma** (figma.com — grátis) e crie telas rápidas para:
 
 ---
 
-## Fase 2 — Estrutura do Backend
+## ✅ Fase 2 — Estrutura do Backend
 
-**Duração estimada: 1 dia**
+**Duração estimada: 1 dia** → ✅ **Concluída**
 
-### 2.1 Criar o projeto NestJS
+### ✅ 2.1 Criar o projeto NestJS
 
 ```bash
 nest new ox-backend
@@ -262,7 +268,7 @@ npm install @supabase/supabase-js
 npm install -D @types/bcryptjs @types/passport-jwt
 ```
 
-### 2.2 Estrutura de pastas final
+### ✅ 2.2 Estrutura de pastas final
 
 ```bash
 # Criar a estrutura de módulos
@@ -271,7 +277,7 @@ mkdir -p src/common/{guards,decorators,filters,interceptors,pipes,state-machine,
 mkdir -p src/config
 ```
 
-### 2.3 Configuração base (`.env`)
+### ✅ 2.3 Configuração base (`.env`)
 
 ```env
 # .env (NUNCA commitar no git)
@@ -310,7 +316,7 @@ echo ".env" >> .gitignore
 echo ".env.local" >> .gitignore
 ```
 
-### 2.4 Configurar Swagger (documentação automática)
+### ✅ 2.4 Configurar Swagger (documentação automática)
 
 ```typescript
 // src/main.ts
@@ -343,9 +349,11 @@ bootstrap();
 
 ---
 
-## Fase 3 — Banco de Dados
+## ✅ Fase 3 — Banco de Dados
 
-**Duração estimada: 1–2 dias**
+**Duração estimada: 1–2 dias** → ✅ **Concluída**
+
+> **Setup MCP Supabase:** `.mcp.json` e `.claude/settings.json` configurados. Reiniciar sessão para ativar — Claude aplicará as migrations diretamente via MCP sem precisar de credenciais manuais.
 
 ### 3.1 Configurar Prisma com Supabase
 
@@ -523,41 +531,157 @@ npx prisma studio
 
 ---
 
-## Fase 4 — Autenticação e RBAC
+## ✅ Fase 4 — Autenticação e RBAC
 
-**Duração estimada: 1–2 dias**
+**Duração estimada: 1–2 dias** → ✅ **Concluída**
 
-### 4.1 Criar o módulo de Auth
+> **Decisão de arquitetura:** autenticação delegada ao **Supabase Auth**. O backend NestJS apenas valida o JWT emitido pelo Supabase — não gerencia senhas, tokens de refresh, nem fluxos de login.
+>
+> Fluxo: Flutter/Web → Supabase Auth SDK → JWT → NestJS valida com `SUPABASE_JWT_SECRET` → carrega perfil do banco.
+
+### 4.1 Adicionar variáveis de ambiente
+
+```env
+# .env — acrescente esta variável
+# Encontre em: Supabase Dashboard → Project Settings → API → JWT Secret
+SUPABASE_JWT_SECRET=seu_jwt_secret_aqui
+```
+
+### 4.2 Criar o módulo de Auth
+
+```bash
+# Dentro de ox-backend
+nest generate module modules/auth
+nest generate service modules/auth
+```
 
 ```typescript
-// src/modules/auth/auth.service.ts (estrutura base)
+// src/modules/auth/auth.module.ts
+import { Module } from '@nestjs/common';
+import { PassportModule } from '@nestjs/passport';
+import { AuthService } from './auth.service';
+import { SupabaseStrategy } from './supabase.strategy';
+
+@Module({
+  imports: [PassportModule],
+  providers: [AuthService, SupabaseStrategy],
+  exports: [AuthService],
+})
+export class AuthModule {}
+```
+
+### 4.3 Strategy para validar o JWT do Supabase
+
+```typescript
+// src/modules/auth/supabase.strategy.ts
+import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { PassportStrategy } from '@nestjs/passport';
+import { ExtractJwt, Strategy } from 'passport-jwt';
+import { PrismaService } from '../../prisma/prisma.service';
+
+interface SupabaseJwtPayload {
+  sub: string;       // auth.users.id
+  email: string;
+  role: string;      // 'authenticated' (papel do Supabase, não o nosso)
+  iat: number;
+  exp: number;
+}
 
 @Injectable()
-export class AuthService {
-  async register(dto: RegisterDto) {
-    // 1. Verificar se email já existe
-    // 2. Hash da senha com bcrypt
-    // 3. Criar usuário no DB
-    // 4. Retornar tokens JWT
+export class SupabaseStrategy extends PassportStrategy(Strategy, 'supabase') {
+  constructor(private prisma: PrismaService) {
+    super({
+      jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
+      secretOrKey: process.env.SUPABASE_JWT_SECRET,
+    });
   }
 
-  async login(dto: LoginDto) {
-    // 1. Buscar usuário por email
-    // 2. Comparar senha com bcrypt
-    // 3. Gerar access token (15min) + refresh token (7d)
-  }
+  async validate(payload: SupabaseJwtPayload) {
+    const user = await this.prisma.user.findUnique({
+      where: { authId: payload.sub },
+    });
 
-  async refreshToken(token: string) {
-    // 1. Validar refresh token
-    // 2. Gerar novo access token
+    if (!user) {
+      throw new UnauthorizedException('Perfil não encontrado. Faça o registro.');
+    }
+
+    return user; // injetado em req.user em todas as rotas protegidas
   }
 }
 ```
 
-### 4.2 Guards de RBAC
+### 4.4 Guard de autenticação
+
+```typescript
+// src/common/guards/jwt-auth.guard.ts
+import { Injectable } from '@nestjs/common';
+import { AuthGuard } from '@nestjs/passport';
+
+@Injectable()
+export class JwtAuthGuard extends AuthGuard('supabase') {}
+```
+
+### 4.5 Sincronizar perfil após primeiro login
+
+O Supabase Auth cria o usuário em `auth.users`. Precisamos criar o registro em `public.User` na primeira vez que o usuário acessa a API.
+
+**Opção A — Endpoint de sync (mais simples para MVP):**
+
+```typescript
+// src/modules/auth/auth.service.ts
+import { Injectable } from '@nestjs/common';
+import { PrismaService } from '../../prisma/prisma.service';
+
+@Injectable()
+export class AuthService {
+  constructor(private prisma: PrismaService) {}
+
+  // Chamado pelo app após primeiro login no Supabase
+  async syncProfile(authId: string, email: string, name: string, role: 'client' | 'worker') {
+    return this.prisma.user.upsert({
+      where: { authId },
+      update: {},
+      create: { authId, email, name, role },
+    });
+  }
+}
+```
+
+```typescript
+// src/modules/auth/auth.controller.ts
+import { Body, Controller, Post, Req, UseGuards } from '@nestjs/common';
+import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
+import { AuthService } from './auth.service';
+
+@Controller('auth')
+export class AuthController {
+  constructor(private authService: AuthService) {}
+
+  // POST /auth/sync — chamado pelo app logo após signup no Supabase
+  @Post('sync')
+  @UseGuards(JwtAuthGuard)
+  syncProfile(
+    @Req() req: any,
+    @Body() body: { name: string; role: 'client' | 'worker' },
+  ) {
+    return this.authService.syncProfile(req.user.authId, req.user.email, body.name, body.role);
+  }
+
+  // GET /auth/me — retorna o perfil do usuário logado
+  @UseGuards(JwtAuthGuard)
+  @Post('me')
+  me(@Req() req: any) {
+    return req.user;
+  }
+}
+```
+
+### 4.6 Guards de RBAC
 
 ```typescript
 // src/common/guards/roles.guard.ts
+import { Injectable, CanActivate, ExecutionContext } from '@nestjs/common';
+import { Reflector } from '@nestjs/core';
 
 @Injectable()
 export class RolesGuard implements CanActivate {
@@ -571,21 +695,66 @@ export class RolesGuard implements CanActivate {
     return requiredRoles.includes(user.role);
   }
 }
+```
 
-// Decorator para usar nas rotas
+```typescript
+// src/common/decorators/roles.decorator.ts
+import { SetMetadata } from '@nestjs/common';
 export const Roles = (...roles: string[]) => SetMetadata('roles', roles);
 
-// Uso:
-@Roles('admin', 'client')
-@Get('/projects')
-findAll() { ... }
+// Uso combinado nas rotas:
+// @UseGuards(JwtAuthGuard, RolesGuard)
+// @Roles('admin', 'client')
+// @Get('/projects')
+// findAll() { ... }
+```
+
+### 4.7 Registrar AuthModule no AppModule
+
+```typescript
+// src/app.module.ts — adicionar AuthModule aos imports
+import { AuthModule } from './modules/auth/auth.module';
+
+@Module({
+  imports: [
+    ConfigModule.forRoot({ isGlobal: true }),
+    PrismaModule,
+    AuthModule,
+  ],
+  ...
+})
+```
+
+### 4.8 Testar com Bruno / Thunder Client
+
+```
+# 1. Registrar usuário via Supabase Auth (direto na API do Supabase)
+POST https://pmsccdvhhhokormlvxww.supabase.co/auth/v1/signup
+Content-Type: application/json
+apikey: <SUPABASE_ANON_KEY>
+
+{ "email": "test@ox.com", "password": "senha123" }
+
+# 2. Copiar o access_token da resposta
+
+# 3. Sincronizar perfil no backend
+POST http://localhost:3000/auth/sync
+Authorization: Bearer <access_token>
+
+{ "name": "João Silva", "role": "client" }
+
+# 4. Verificar perfil
+POST http://localhost:3000/auth/me
+Authorization: Bearer <access_token>
 ```
 
 ---
 
-## Fase 5 — Módulo de Projetos + State Machine
+## ✅ Fase 5 — Módulo de Projetos + State Machine
 
-**Duração estimada: 2–3 dias**
+**Duração estimada: 2–3 dias** → ✅ **Concluída (DeepSeek V4 Reasoner)**
+
+> State machine implementada com XState v5, módulo Projects com CRUD completo + transições de estado, módulo Phases com validação de fluxo de fases.
 
 ### 5.1 Instalar e configurar XState
 
@@ -713,7 +882,7 @@ async validatePhase(phaseId: string) {
 ## Fase 7 — POC do Stripe Connect (Escrow)
 
 **Duração estimada: 3–4 dias**
-> Esta é a fase mais crítica. Teste exaustivamente antes de avançar.
+> Esta é a fase mais crítica. vamos Testar exaustivamente antes de avançar.
 
 ### 7.1 Configurar Stripe Connect
 
@@ -1333,10 +1502,10 @@ git push origin feature/nome-da-feature    # push
 | Fase | O que entrega | Semanas | Status |
 |---|---|---|---|
 | 0 | Ambiente pronto | 1 | ✅ |
-| 1 | ERD + endpoints documentados + wireframes | 1 |
-| 2–3 | Backend estruturado + banco configurado | 1 |
-| 4 | Auth + RBAC funcionando | 1 |
-| 5–6 | Projetos + fases + upload de evidências | 1–2 |
+| 1 | ERD + endpoints documentados + wireframes | 1 | ✅ (wireframes ignorados) |
+| 2–3 | Backend estruturado + banco configurado | 1 | ✅ Fase 2 · ✅ Fase 3 |
+| 4 | Auth + RBAC funcionando | 1 | ✅ |
+| ✅ 5–6 | Projetos + fases + upload de evidências | 1–2 |
 | 7 | Escrow + Stripe Connect funcionando | 1–2 |
 | 8–9 | Matching + contratos + liberação de pagamento | 1–2 |
 | 10 | Notificações push | 0.5 |

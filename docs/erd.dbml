@@ -1,0 +1,88 @@
+// OX Field Service — ERD
+// Cole em https://dbdiagram.io para visualizar
+
+Table users {
+  id         uuid      [pk, default: `gen_random_uuid()`]
+  role       varchar   [note: 'client | worker | admin']
+  name       varchar
+  email      varchar   [unique]
+  phone      varchar
+  password   varchar
+  created_at timestamp [default: `now()`]
+}
+
+Table workers {
+  id                uuid    [pk, default: `gen_random_uuid()`]
+  user_id           uuid    [ref: > users.id]
+  skills            text[]
+  rating            decimal [default: 0]
+  shelter_certified boolean [default: false]
+  available         boolean [default: true]
+  stripe_account_id varchar
+}
+
+Table projects {
+  id         uuid    [pk, default: `gen_random_uuid()`]
+  client_id  uuid    [ref: > users.id]
+  status     varchar [note: 'draft | in_validation | matched | contract_signed | active_escrow | in_execution | closing | closed | rejected']
+  title      varchar
+  budget     decimal
+  location   varchar
+  deadline   date
+  created_at timestamp [default: `now()`]
+}
+
+Table project_phases {
+  id         uuid    [pk, default: `gen_random_uuid()`]
+  project_id uuid    [ref: > projects.id]
+  name       varchar
+  status     varchar [note: 'pending | in_progress | evidence_uploaded | under_review | validated | rejected']
+  order      integer
+  amount     decimal
+}
+
+Table phase_evidence {
+  id          uuid      [pk, default: `gen_random_uuid()`]
+  phase_id    uuid      [ref: > project_phases.id]
+  type        varchar   [note: 'photo | video']
+  url         varchar
+  uploaded_by uuid      [ref: > users.id]
+  uploaded_at timestamp [default: `now()`]
+}
+
+Table contracts {
+  id               uuid      [pk, default: `gen_random_uuid()`]
+  project_id       uuid      [ref: - projects.id]
+  worker_id        uuid      [ref: > workers.id]
+  total_amount     decimal
+  stripe_intent_id varchar
+  signed_at        timestamp
+}
+
+Table escrow_txns {
+  id          uuid      [pk, default: `gen_random_uuid()`]
+  contract_id uuid      [ref: - contracts.id]
+  amount      decimal
+  status      varchar   [note: 'held | released | refunded']
+  released_at timestamp
+}
+
+Table payments {
+  id                 uuid      [pk, default: `gen_random_uuid()`]
+  escrow_id          uuid      [ref: > escrow_txns.id]
+  recipient_type     varchar   [note: 'worker | supplier | platform']
+  recipient_id       uuid
+  amount             decimal
+  stripe_transfer_id varchar
+  paid_at            timestamp
+}
+
+Table worker_ratings {
+  id         uuid      [pk, default: `gen_random_uuid()`]
+  worker_id  uuid      [ref: > workers.id]
+  project_id uuid      [ref: > projects.id]
+  user_id    uuid      [ref: > users.id]
+  score      integer
+  feedback   text
+  created_at timestamp [default: `now()`]
+}

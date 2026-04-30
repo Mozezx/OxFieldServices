@@ -1,0 +1,460 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>OX Field Service — Diagramas Adicionais</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/mermaid/10.9.0/mermaid.min.js"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: #0f172a;
+    color: #e2e8f0;
+    padding: 24px 16px;
+    line-height: 1.6;
+  }
+  .container { max-width: 1100px; margin: 0 auto; }
+
+  header {
+    text-align: center;
+    margin-bottom: 40px;
+    padding-bottom: 24px;
+    border-bottom: 1px solid #1e293b;
+  }
+  h1 {
+    font-size: 28px;
+    font-weight: 700;
+    background: linear-gradient(135deg, #34d399, #60a5fa);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    margin-bottom: 8px;
+  }
+  .subtitle { color: #94a3b8; font-size: 14px; }
+
+  section {
+    background: #1e293b;
+    border: 1px solid #334155;
+    border-radius: 12px;
+    padding: 24px;
+    margin-bottom: 32px;
+  }
+  h2 {
+    color: #f1f5f9;
+    font-size: 20px;
+    margin-bottom: 6px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .badge {
+    font-size: 12px;
+    padding: 2px 12px;
+    border-radius: 999px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+  }
+  .badge-green  { background: #065f46; color: #34d399; border: 1px solid #34d399; }
+  .badge-blue   { background: #1e3a8a; color: #60a5fa; border: 1px solid #60a5fa; }
+
+  .description {
+    color: #94a3b8;
+    font-size: 14px;
+    margin-bottom: 20px;
+    margin-top: 4px;
+  }
+
+  .pill-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 20px;
+  }
+  .pill {
+    background: #0f172a;
+    border: 1px solid #334155;
+    border-radius: 999px;
+    padding: 4px 14px;
+    font-size: 12px;
+    color: #94a3b8;
+  }
+  .pill strong { color: #e2e8f0; }
+
+  .diagram-wrapper {
+    background: #0f172a;
+    border-radius: 8px;
+    padding: 24px 16px;
+    overflow-x: auto;
+    border: 1px solid #334155;
+  }
+  .mermaid { text-align: center; }
+
+  .insight-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 12px;
+    margin-top: 20px;
+  }
+  .insight {
+    background: #0f172a;
+    border: 1px solid #334155;
+    border-radius: 8px;
+    padding: 14px 16px;
+  }
+  .insight-icon { font-size: 20px; margin-bottom: 6px; }
+  .insight-title { font-size: 13px; font-weight: 600; color: #f1f5f9; margin-bottom: 4px; }
+  .insight-text  { font-size: 12px; color: #94a3b8; }
+
+  footer {
+    text-align: center;
+    color: #64748b;
+    font-size: 12px;
+    margin-top: 32px;
+    padding-top: 24px;
+    border-top: 1px solid #1e293b;
+  }
+
+  @media (max-width: 600px) {
+    h1 { font-size: 22px; }
+    section { padding: 16px; }
+    .diagram-wrapper { padding: 12px 8px; }
+  }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <header>
+    <h1>OX Field Service — Diagramas Adicionais</h1>
+    <p class="subtitle">Materials Hub · Arquitetura de Deploy</p>
+  </header>
+
+  <!-- ═══════════════════════════════════════════
+       DIAGRAMA 1 — MATERIALS HUB OPERATIONAL FLOW
+  ═══════════════════════════════════════════════ -->
+  <section>
+    <h2><span class="badge badge-green">01</span> Materials Hub — Fluxo Operacional Completo</h2>
+    <p class="description">
+      Do pedido de materiais até a confirmação na obra — incluindo o Replacement Engine automático para fornecedores que falham.
+    </p>
+
+    <div class="pill-row">
+      <span class="pill"><strong>Multi-supplier</strong> · 1 interface</span>
+      <span class="pill"><strong>Entrega por fase</strong> · não bulk</span>
+      <span class="pill"><strong>Replacement Engine</strong> automático</span>
+      <span class="pill"><strong>OX controla</strong> a cadeia</span>
+    </div>
+
+    <div class="diagram-wrapper">
+      <div class="mermaid">
+flowchart TD
+    subgraph Trigger["🚀 GATILHO"]
+        PF["Projeto ativado<br/>no sistema"]
+    end
+
+    subgraph Planning["📋 PLANEJAMENTO AUTOMÁTICO"]
+        ML["Gera lista de materiais<br/>por fase do projeto"]
+        MP["Faz matching com<br/>fornecedores disponíveis"]
+    end
+
+    subgraph OXControl["🏢 OX VALIDA (Controle Central)"]
+        OXV{"OX verifica:\n💲 Preço\n📅 Prazo\n📍 Localização\n⭐ Rating"}
+        APR["✅ Pedido aprovado"]
+        REJ["❌ Busca alternativa"]
+    end
+
+    subgraph Suppliers["🏪 FORNECEDORES (Multi-supplier)"]
+        SA["Fornecedor A<br/>⭐⭐⭐⭐⭐"]
+        SB["Fornecedor B<br/>⭐⭐⭐⭐"]
+        SC2["Fornecedor C<br/>⭐⭐⭐"]
+    end
+
+    subgraph Delivery["🚚 ENTREGA POR FASE"]
+        ORD["Pedido confirmado<br/>com slot de entrega"]
+        TRK["Tracking em<br/>tempo real"]
+        SLA{"Entregue<br/>no prazo?"}
+    end
+
+    subgraph RE["⚡ REPLACEMENT ENGINE"]
+        ALERT["🚨 Alerta: fornecedor<br/>A vai atrasar"]
+        SWAP["Sistema propõe:<br/>• Fornecedor B<br/>• Fornecedor C<br/>• Produto equivalente"]
+        OXR{"OX aprova<br/>troca?"}
+        AUTO["✅ Pedido<br/>reroteado"]
+    end
+
+    subgraph Site["🏗️ OBRA"]
+        RECV["👷 Ploeg confirma<br/>recebimento"]
+        PROOF["📸 Upload do<br/>comprovante"]
+        UPD["✅ Sistema atualiza<br/>progresso do projeto"]
+    end
+
+    PF --> ML
+    ML --> MP
+    MP --> OXV
+    OXV -->|"Aprovado"| APR
+    OXV -->|"Reprovado"| REJ
+    REJ --> MP
+
+    APR --> SA
+    APR --> SB
+    APR --> SC2
+
+    SA --> ORD
+    SB --> ORD
+    SC2 --> ORD
+
+    ORD --> TRK
+    TRK --> SLA
+
+    SLA -->|"✅ Sim"| RECV
+    SLA -->|"❌ Não / Risco"| ALERT
+
+    ALERT --> SWAP
+    SWAP --> OXR
+    OXR -->|"Sim"| AUTO
+    OXR -->|"Não"| ALERT
+    AUTO --> ORD
+
+    RECV --> PROOF
+    PROOF --> UPD
+
+    style PF       fill:#1e3a8a,stroke:#3b82f6,color:#fff
+    style OXV      fill:#713f12,stroke:#eab308,color:#fff
+    style ALERT    fill:#7f1d1d,stroke:#ef4444,color:#fff
+    style SWAP     fill:#7f1d1d,stroke:#ef4444,color:#fff
+    style RE       fill:#1a1a2e,stroke:#ef4444,color:#fff
+    style AUTO     fill:#14532d,stroke:#22c55e,color:#fff
+    style UPD      fill:#14532d,stroke:#22c55e,color:#fff
+    style OXControl fill:#1a1a2e,stroke:#eab308,color:#fff
+      </div>
+    </div>
+
+    <div class="insight-grid">
+      <div class="insight">
+        <div class="insight-icon">🔄</div>
+        <div class="insight-title">Entrega por Fase</div>
+        <div class="insight-text">Sem bulk. Materiais chegam exatamente quando cada fase começa — menos desperdício e roubo.</div>
+      </div>
+      <div class="insight">
+        <div class="insight-icon">⚡</div>
+        <div class="insight-title">Replacement Engine</div>
+        <div class="insight-text">Se o fornecedor A falhar antes das 9h, o sistema já propõe B ou C automaticamente.</div>
+      </div>
+      <div class="insight">
+        <div class="insight-icon">🏢</div>
+        <div class="insight-title">OX no Controle</div>
+        <div class="insight-text">Não é marketplace aberto. OX valida preço, prazo e rating antes de cada pedido.</div>
+      </div>
+      <div class="insight">
+        <div class="insight-icon">📈</div>
+        <div class="insight-title">Rating de Fornecedor</div>
+        <div class="insight-text">Cada entrega alimenta o score do fornecedor. Quem falha perde prioridade automaticamente.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════
+       DIAGRAMA 2 — DEPLOY ARCHITECTURE
+  ═══════════════════════════════════════════════ -->
+  <section>
+    <h2><span class="badge badge-blue">02</span> Arquitetura de Deploy — Railway + Supabase</h2>
+    <p class="description">
+      Infraestrutura de produção para MVP com custo mínimo, zero DevOps pesado, e fácil escalabilidade futura.
+    </p>
+
+    <div class="pill-row">
+      <span class="pill"><strong>Railway</strong> · backend + workers</span>
+      <span class="pill"><strong>Supabase</strong> · DB + Auth + Storage</span>
+      <span class="pill"><strong>Vercel</strong> · React admin</span>
+      <span class="pill"><strong>~$50/mês</strong> MVP completo</span>
+    </div>
+
+    <div class="diagram-wrapper">
+      <div class="mermaid">
+graph TB
+    subgraph Users["👥 USUÁRIOS"]
+        UA["📱 Flutter App<br/>iOS + Android"]
+        UW["💻 React Admin<br/>Web Browser"]
+    end
+
+    subgraph CDN["🌐 CDN / DNS"]
+        CF["Cloudflare<br/>DNS + DDoS Protection"]
+    end
+
+    subgraph Vercel["▲ VERCEL (Free/Pro)"]
+        RA["React Admin<br/>Build estático"]
+    end
+
+    subgraph Railway["🚂 RAILWAY"]
+        direction TB
+        API2["🟢 NestJS API<br/>Container Principal<br/>$10–20/mês"]
+        WRK["🔵 BullMQ Worker<br/>Processamento de Eventos<br/>$5–10/mês"]
+        RD2["⚡ Redis<br/>Cache + Filas<br/>$5/mês"]
+    end
+
+    subgraph Supabase["⚡ SUPABASE (Free → Pro)"]
+        direction TB
+        PG2[("🐘 PostgreSQL<br/>Banco Principal")]
+        AUTH["🔐 Supabase Auth<br/>JWT + OAuth"]
+        STOR["🗂️ Storage<br/>Fotos e Vídeos<br/>da Obra"]
+        RT["📡 Realtime<br/>Status ao vivo"]
+    end
+
+    subgraph Stripe["💳 STRIPE"]
+        SC3["Stripe Connect<br/>Escrow + Split"]
+        WH["Webhooks<br/>Confirmações"]
+    end
+
+    subgraph Monitoring["📊 MONITORAMENTO"]
+        SEN["Sentry<br/>Erros"]
+        LOG["Logtail<br/>Logs"]
+        UPT["UptimeRobot<br/>Uptime"]
+    end
+
+    UA --> CF
+    UW --> CF
+    CF --> RA
+    CF --> API2
+
+    RA --> API2
+    API2 --> WRK
+    API2 <--> RD2
+    WRK <--> RD2
+
+    API2 --> PG2
+    API2 --> AUTH
+    API2 --> STOR
+    API2 --> RT
+    RT --> UA
+
+    API2 --> SC3
+    SC3 --> WH
+    WH --> API2
+
+    API2 --> SEN
+    API2 --> LOG
+    UPT -.->|"Ping a cada 5min"| API2
+
+    style Railway fill:#1a1a2e,stroke:#3b82f6,color:#fff
+    style Supabase fill:#1a2e1a,stroke:#22c55e,color:#fff
+    style Stripe fill:#1a1a2e,stroke:#a855f7,color:#fff
+    style Vercel fill:#1a1a1a,stroke:#94a3b8,color:#fff
+    style CDN fill:#1a2020,stroke:#22d3ee,color:#fff
+    style Monitoring fill:#1a1a2e,stroke:#f97316,color:#fff
+    style API2 fill:#065f46,stroke:#34d399,color:#fff
+    style WRK fill:#1e3a8a,stroke:#60a5fa,color:#fff
+    style RD2 fill:#7f1d1d,stroke:#f87171,color:#fff
+      </div>
+    </div>
+
+    <div class="insight-grid">
+      <div class="insight">
+        <div class="insight-icon">💰</div>
+        <div class="insight-title">Custo do MVP</div>
+        <div class="insight-text">Railway ~$25/mês + Supabase free tier + Vercel free = menos de €30/mês para rodar o MVP completo.</div>
+      </div>
+      <div class="insight">
+        <div class="insight-icon">🚀</div>
+        <div class="insight-title">Deploy Automático</div>
+        <div class="insight-text">Push no GitHub → Railway e Vercel fazem deploy automático. Zero configuração manual de servidor.</div>
+      </div>
+      <div class="insight">
+        <div class="insight-icon">📡</div>
+        <div class="insight-title">Realtime Grátis</div>
+        <div class="insight-text">Supabase Realtime entrega status de projeto e notificações ao vivo sem WebSocket customizado.</div>
+      </div>
+      <div class="insight">
+        <div class="insight-icon">📈</div>
+        <div class="insight-title">Escala Fácil</div>
+        <div class="insight-text">Quando crescer: Railway escala horizontalmente com 1 clique. Supabase tem tier Pro com pool de conexões.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════
+       DIAGRAMA 3 — PIPELINE CI/CD
+  ═══════════════════════════════════════════════ -->
+  <section>
+    <h2><span class="badge badge-blue">03</span> Pipeline CI/CD — GitHub Actions</h2>
+    <p class="description">
+      Fluxo de desenvolvimento e deploy automatizado para um dev solo — do commit ao ambiente de produção.
+    </p>
+
+    <div class="diagram-wrapper">
+      <div class="mermaid">
+flowchart LR
+    subgraph Dev["💻 LOCAL"]
+        CODE["Código<br/>NestJS / React<br/>Flutter"]
+        GIT["git push<br/>→ GitHub"]
+    end
+
+    subgraph CI["⚙️ GITHUB ACTIONS (CI)"]
+        LINT["Lint +<br/>Type Check"]
+        TEST["Unit +<br/>Integration Tests"]
+        BUILD["Docker<br/>Build"]
+    end
+
+    subgraph CD["🚀 DEPLOY (CD)"]
+        direction TB
+        STG["🟡 Staging<br/>Railway (branch develop)"]
+        PRD["🟢 Production<br/>Railway (branch main)"]
+        VRC["▲ Vercel<br/>React Admin"]
+    end
+
+    subgraph Post["📊 PÓS-DEPLOY"]
+        MIG["DB Migrations<br/>automáticas"]
+        SMK["Smoke Tests<br/>endpoints críticos"]
+        ALT["Alertas Sentry<br/>se erro"]
+    end
+
+    CODE --> GIT
+    GIT --> LINT
+    LINT --> TEST
+    TEST -->|"✅ Passa"| BUILD
+    TEST -->|"❌ Falha"| CODE
+
+    BUILD -->|"branch develop"| STG
+    BUILD -->|"branch main"| PRD
+    BUILD --> VRC
+
+    PRD --> MIG
+    MIG --> SMK
+    SMK -->|"❌ Falha"| ALT
+    ALT -->|"Rollback"| PRD
+
+    style PRD fill:#065f46,stroke:#34d399,color:#fff
+    style STG fill:#713f12,stroke:#eab308,color:#fff
+    style ALT fill:#7f1d1d,stroke:#ef4444,color:#fff
+    style TEST fill:#1e3a8a,stroke:#60a5fa,color:#fff
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    OX Field Service · Materials Hub + Deploy Architecture · Diagramas Adicionais
+  </footer>
+
+</div>
+
+<script>
+  mermaid.initialize({
+    startOnLoad: true,
+    theme: 'dark',
+    themeVariables: {
+      darkMode: true,
+      background: '#0f172a',
+      primaryColor: '#1e293b',
+      primaryTextColor: '#e2e8f0',
+      primaryBorderColor: '#475569',
+      lineColor: '#64748b',
+      secondaryColor: '#334155',
+      tertiaryColor: '#1e293b',
+      fontSize: '14px'
+    },
+    flowchart: { curve: 'basis', padding: 20 },
+    sequence: { actorMargin: 60, width: 160 }
+  });
+</script>
+</body>
+</html>
