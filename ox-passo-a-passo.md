@@ -7,7 +7,7 @@
 
 ## Sumário
 
-- [Fase 0 — Preparação do Ambiente](#fase-0--preparação-do-ambiente)
+- ✅ [Fase 0 — Preparação do Ambiente](#fase-0--preparação-do-ambiente)
 - [Fase 1 — Modelagem e Design](#fase-1--modelagem-e-design)
 - [Fase 2 — Estrutura do Backend](#fase-2--estrutura-do-backend)
 - [Fase 3 — Banco de Dados](#fase-3--banco-de-dados)
@@ -26,70 +26,60 @@
 
 ---
 
-## Fase 0 — Preparação do Ambiente
+## ✅ Fase 0 — Preparação do Ambiente
 
-**Duração estimada: 1 dia**
+**Duração estimada: 1 dia** → ✅ **Concluída**
 
-### 0.1 Instalar ferramentas essenciais
+### ✅ 0.1 Instalar ferramentas essenciais
 
-```bash
-# Node.js (via NVM — recomendado)
-curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh | bash
-nvm install 20
-nvm use 20
+| Ferramenta | Versão | Status |
+|---|---|---|
+| **Node.js** | v24.14.0 | ✅ |
+| **npm** | 11.9.0 | ✅ |
+| **Git** | 2.53.0 | ✅ |
+| **NestJS CLI** | 11.0.21 | ✅ |
+| **Flutter** | 3.41.7 (stable) | ✅ (`C:\src\flutter`) |
+| **ANDROID_HOME** | Configurado | ✅ |
 
-# Verificar
-node -v   # v20.x.x
-npm -v    # 10.x.x
+### ✅ 0.2 Criar contas nos serviços
 
-# NestJS CLI
-npm install -g @nestjs/cli
-
-# Flutter
-# Baixe em: https://docs.flutter.dev/get-started/install
-flutter doctor   # verifica o ambiente
-
-# Git
-git --version
-```
-
-### 0.2 Criar contas nos serviços
-
-| Serviço | URL | Para que serve | Custo MVP |
+| Serviço | URL | Para que serve | Status |
 |---|---|---|---|
-| GitHub | github.com | Código + CI/CD | Grátis |
-| Supabase | supabase.com | DB + Auth + Storage | Grátis |
-| Railway | railway.app | Deploy backend | ~$5/mês |
-| Stripe | stripe.com | Pagamentos + Escrow | % por transação |
-| Vercel | vercel.com | Deploy React admin | Grátis |
-| Firebase | firebase.google.com | Push notifications | Grátis |
-| Sentry | sentry.io | Monitoramento de erros | Grátis |
+| GitHub | github.com | Código + CI/CD | ✅ `Mozezx/OxFieldServices` |
+| Supabase | supabase.com | DB + Auth + Storage | ✅ |
+| Railway | railway.app | Deploy backend | ⏳ (Fase 14) |
+| Stripe | stripe.com | Pagamentos + Escrow | ✅ (modo Test) |
+| Vercel | vercel.com | Deploy React admin | ⏳ (Fase 14) |
+| Firebase | firebase.google.com | Push notifications | ⏳ (Fase 10) |
+| Sentry | sentry.io | Monitoramento de erros | ⏳ (Fase 14) |
 
 > **Importante:** No Stripe, crie a conta em modo **Test** primeiro. Só ative produção quando o MVP estiver validado.
 
-### 0.3 Instalar ferramentas de produtividade
+### ✅ 0.3 Instalar ferramentas de produtividade
 
-- **VSCode** com extensões: ESLint, Prettier, Prisma, Thunder Client
-- **TablePlus** ou **DBeaver** — visualizar o banco PostgreSQL
-- **Insomnia** ou **Bruno** — testar APIs
-- **dbdiagram.io** — modelar ERD (online, sem instalar)
+- **VSCode** — Extensões instaladas: ✅ ESLint, ✅ Prettier, ✅ Prisma, ✅ Thunder Client, ✅ Bruno API Client
+- **TablePlus** ou **DBeaver** — ⏳ (instalar quando necessário)
+- **Bruno** — ✅ (extensão VSCode instalada)
+- **dbdiagram.io** — 🔗 online (usar na Fase 1)
 
-### 0.4 Configurar repositório
+### ✅ 0.4 Configurar repositório
 
-```bash
-# Criar organização ou repo no GitHub
-# Estrutura recomendada:
+Repositório configurado como **monorepo**:
 
-ox-ecosystem/
-  ├── ox-backend/        # NestJS API
-  ├── ox-admin/          # React
-  ├── ox-app-client/     # Flutter cliente
-  └── ox-app-worker/     # Flutter trabalhador
-
-# Para cada repo:
-git init
-git remote add origin https://github.com/seu-usuario/ox-backend.git
 ```
+https://github.com/Mozezx/OxFieldServices.git
+
+ox-field-services-3/
+  ├── .gitignore
+  ├── README.md
+  ├── ox-passo-a-passo.md
+  ├── ox-backend/        # NestJS API
+  ├── ox-admin/          # React Admin
+  ├── ox-app-client/     # Flutter Cliente
+  └── ox-app-worker/     # Flutter Trabalhador
+```
+
+✅ Primeiro commit realizado e enviado para o `main`.
 
 ---
 
@@ -1340,9 +1330,9 @@ git push origin feature/nome-da-feature    # push
 
 ## Resumo das Fases e Prazos
 
-| Fase | O que entrega | Semanas |
-|---|---|---|
-| 0 | Ambiente pronto | 1 |
+| Fase | O que entrega | Semanas | Status |
+|---|---|---|---|
+| 0 | Ambiente pronto | 1 | ✅ |
 | 1 | ERD + endpoints documentados + wireframes | 1 |
 | 2–3 | Backend estruturado + banco configurado | 1 |
 | 4 | Auth + RBAC funcionando | 1 |
