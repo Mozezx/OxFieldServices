@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import '../auth/auth_provider.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../auth/token_storage.dart';
 import '../../features/splash/splash_screen.dart';
 import '../../features/onboarding/onboarding_screen.dart';
@@ -18,12 +18,12 @@ import 'main_shell.dart';
 final _publicRoutes = {'/splash', '/onboarding', '/login', '/register'};
 
 final routerProvider = Provider<GoRouter>((ref) {
-  final authState = ref.watch(authStateProvider);
-
   return GoRouter(
     initialLocation: '/splash',
     redirect: (context, state) async {
-      final isAuth = ref.read(isAuthenticatedProvider);
+      // Read auth state directly from Supabase — avoids Riverpod ref usage
+      // inside async callbacks which causes "provider changed before rebuild" assertion.
+      final isAuth = Supabase.instance.client.auth.currentSession != null;
       final location = state.matchedLocation;
 
       if (location == '/splash') return null;
@@ -40,11 +40,7 @@ final routerProvider = Provider<GoRouter>((ref) {
       return null;
     },
     refreshListenable: GoRouterRefreshStream(
-      authState.when(
-        data: (state) => Stream.value(state),
-        loading: () => const Stream.empty(),
-        error: (_, __) => const Stream.empty(),
-      ),
+      Supabase.instance.client.auth.onAuthStateChange,
     ),
     routes: [
       GoRoute(

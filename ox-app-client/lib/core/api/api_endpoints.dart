@@ -2,7 +2,7 @@ class ApiEndpoints {
   ApiEndpoints._();
 
   // Alterar para a URL real do backend em produção
-  static const baseUrl = 'http://10.0.2.2:3000'; // Android emulator → localhost
+  static const baseUrl = 'http://localhost:3000'; // Web/desktop dev → localhost (Android emulator usa 10.0.2.2)
 
   static const authSync = '/auth/sync';
   static const authMe   = '/auth/me';
