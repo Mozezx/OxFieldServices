@@ -1,0 +1,44 @@
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import '../../core/api/api_client.dart';
+import '../../core/api/api_endpoints.dart';
+
+class AuthController extends AsyncNotifier<void> {
+  @override
+  Future<void> build() async {}
+
+  SupabaseClient get _supabase => Supabase.instance.client;
+
+  Future<void> login(String email, String password) async {
+    state = const AsyncLoading();
+    state = await AsyncValue.guard(() async {
+      await _supabase.auth.signInWithPassword(email: email, password: password);
+    });
+  }
+
+  Future<void> register({
+    required String name,
+    required String email,
+    required String password,
+    required String role,
+  }) async {
+    state = const AsyncLoading();
+    state = await AsyncValue.guard(() async {
+      final res = await _supabase.auth.signUp(email: email, password: password);
+      if (res.user == null) throw Exception('Falha ao criar conta');
+
+      final api = ref.read(apiClientProvider);
+      await api.dio.post(ApiEndpoints.authSync, data: {'name': name, 'role': role});
+    });
+  }
+
+  Future<void> signOut() async {
+    state = const AsyncLoading();
+    state = await AsyncValue.guard(() async {
+      await _supabase.auth.signOut();
+    });
+  }
+}
+
+final authControllerProvider =
+    AsyncNotifierProvider<AuthController, void>(AuthController.new);

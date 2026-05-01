@@ -18,7 +18,7 @@
 - ✅ [Fase 8 — Matching e Contratos](#fase-8--matching-e-contratos)
 - ✅ [Fase 9 — Validação de Fases + Liberação de Pagamento](#fase-9--validação-de-fases--liberação-de-pagamento)
 - ✅ [Fase 10 — Notificações Push](#fase-10--notificações-push)
-- [Fase 11 — Flutter App Cliente](#fase-11--flutter-app-cliente)
+- ✅ [Fase 11 — Flutter App Cliente](#fase-11--flutter-app-cliente)
 - [Fase 12 — Flutter App Trabalhador](#fase-12--flutter-app-trabalhador)
 - [Fase 13 — React Admin Panel](#fase-13--react-admin-panel)
 - [Fase 14 — Deploy do MVP](#fase-14--deploy-do-mvp)
@@ -1172,7 +1172,7 @@ async handlePhaseValidated(payload: { phaseId: string }) {
 
 ---
 
-## Fase 10 — Notificações Push
+## ✅ Fase 10 — Notificações Push
 
 **Duração estimada: 1 dia**
 
@@ -1233,9 +1233,24 @@ export class NotificationsService {
 
 ---
 
-## Fase 11 — Flutter App Cliente
+## ✅ Fase 11 — Flutter App Cliente
 
-**Duração estimada: 1–2 semanas**
+**Duração estimada: 1–2 semanas** → ✅ **Concluída**
+
+**Implementado nesta fase:**
+
+- Design system completo: `AppColors`, `AppGradients`, `AppTheme` (Material 3 dark), `AppTextStyles`
+- Widgets reutilizáveis: `OxButton` (3 variantes + isLoading), `OxInput` (com toggle de senha), `OxBadge` (5 estados), `OxAppBar`, `OxShimmerBox`/`OxProjectCardSkeleton`, `OxEmptyState`
+- GoRouter com `ShellRoute`, guards de redirecionamento auth-aware via `authStateProvider`
+- Supabase Flutter auth + Dio com interceptor JWT + Riverpod providers
+- l10n com 68 chaves em PT-BR (`app_pt.arb`), esqueleto EN/NL
+- Splash Screen com animação scale+fade
+- Onboarding de 3 slides com `PageView` + estado persistido via `SharedPreferences`
+- Login + Registro com `ConsumerStatefulWidget` e seletor de role (client/worker)
+- Projects: lista com filtros + shimmer loading + FAB, detalhe com timeline de fases + botão de validação, wizard de criação em 3 passos
+- Phases: detalhe com grid de evidências, validação com approve/reject + `AlertDialog` de confirmação
+- Payments: card de escrow + breakdown 70/20/10
+- `flutter analyze`: **0 issues**
 
 ### 11.1 Criar o projeto Flutter
 
@@ -1254,6 +1269,7 @@ flutter pub add firebase_messaging
 flutter pub add shared_preferences
 flutter pub add intl          # formatação de datas/moedas
 ```
+flutter esta na pasta C:\src\flutter
 
 ### 11.2 Estrutura de pastas Flutter
 
@@ -1525,7 +1541,8 @@ git push origin feature/nome-da-feature    # push
 | ✅ 8 | Matching + contratos | 1–2 | ✅ |
 | 9 | Validação de fases + liberação de pagamento | 1 |
 | 10 | Notificações push | 0.5 |
-| 11–12 | Apps Flutter (cliente + worker) | 3–4 |
+| ✅ 11 | App Flutter Cliente | 1–2 | ✅ |
+| 12 | App Flutter Trabalhador | 1–2 |
 | 13 | Admin React | 1 |
 | 14 | Deploy MVP em produção | 0.5 |
 | **Total MVP** | **Sistema funcionando end-to-end** | **~14–16 semanas** |
