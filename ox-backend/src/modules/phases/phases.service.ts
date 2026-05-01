@@ -4,13 +4,17 @@ import {
   BadRequestException,
   ForbiddenException,
 } from '@nestjs/common';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import { PrismaService } from '../../prisma/prisma.service';
 import { UpdatePhaseStatusDto } from './dto/update-phase-status.dto';
 import { PhaseStatus } from '@prisma/client';
 
 @Injectable()
 export class PhasesService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private eventEmitter: EventEmitter2,
+  ) {}
 
   /**
    * Retorna todas as fases de um projeto.
@@ -142,6 +146,19 @@ export class PhasesService {
       );
     }
 
+    // Obrigatório ter evidências para enviar para revisão
+    if (newStatus === 'under_review') {
+      const evidenceCount = await this.prisma.phaseEvidence.count({
+        where: { phaseId: id },
+      });
+
+      if (evidenceCount === 0) {
+        throw new BadRequestException(
+          'Upload de evidências obrigatório antes de enviar para revisão.',
+        );
+      }
+    }
+
     // Atualizar status
     const updated = await this.prisma.projectPhase.update({
       where: { id },
@@ -152,6 +169,51 @@ export class PhasesService {
       ...updated,
       amount: Number(updated.amount),
     };
+  }
+
+  /**
+   * Endpoint dedicado de validação pelo cliente.
+   * Aprovação emite evento phase.validated → handler libera pagamento.
+   */
+  async validatePhase(phaseId: string, approved: boolean, userId: string) {
+    const phase = await this.prisma.projectPhase.findUnique({
+      where: { id: phaseId },
+      include: { project: true, evidences: true },
+    });
+
+    if (!phase) throw new NotFoundException('Fase não encontrada');
+
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user) throw new ForbiddenException('Usuário não encontrado');
+
+    if (phase.project.clientId !== userId && user.role !== 'admin') {
+      throw new ForbiddenException(
+        'Apenas o cliente do projeto ou admin pode validar fases',
+      );
+    }
+
+    if (phase.evidences.length === 0) {
+      throw new BadRequestException('Sem evidências para validar');
+    }
+
+    if (phase.status !== 'under_review') {
+      throw new BadRequestException('Fase não está em revisão');
+    }
+
+    const newStatus: PhaseStatus = approved ? 'validated' : 'rejected';
+
+    const updated = await this.prisma.projectPhase.update({
+      where: { id: phaseId },
+      data: { status: newStatus },
+    });
+
+    if (approved) {
+      this.eventEmitter.emit('phase.validated', { phaseId });
+    } else {
+      this.eventEmitter.emit('phase.rejected', { phaseId });
+    }
+
+    return { ...updated, amount: Number(updated.amount) };
   }
 
   // ─── Helpers ───────────────────────────────────────────

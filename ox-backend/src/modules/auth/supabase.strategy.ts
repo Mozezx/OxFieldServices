@@ -1,6 +1,7 @@
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
+import { passportJwtSecret } from 'jwks-rsa';
 import { PrismaService } from '../../prisma/prisma.service';
 
 interface SupabaseJwtPayload {
@@ -13,21 +14,28 @@ interface SupabaseJwtPayload {
 @Injectable()
 export class SupabaseStrategy extends PassportStrategy(Strategy, 'supabase') {
   constructor(private prisma: PrismaService) {
-    const secret = process.env.SUPABASE_JWT_SECRET;
-    if (!secret) throw new Error('SUPABASE_JWT_SECRET não definido no .env');
+    const supabaseUrl = process.env.SUPABASE_URL;
+    if (!supabaseUrl) throw new Error('SUPABASE_URL não definido no .env');
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
-      secretOrKey: secret,
+      secretOrKeyProvider: passportJwtSecret({
+        jwksUri: `${supabaseUrl}/auth/v1/.well-known/jwks.json`,
+        cache: true,
+        rateLimit: true,
+      }),
+      algorithms: ['ES256', 'RS256'],
     });
   }
 
   async validate(payload: SupabaseJwtPayload) {
     const user = await this.prisma.user.findUnique({
       where: { authId: payload.sub },
+      include: { worker: true },
     });
 
+    // Retorna payload mínimo quando o perfil ainda não existe — permite POST /auth/sync funcionar
     if (!user) {
-      throw new UnauthorizedException('Perfil não encontrado. Chame POST /auth/sync primeiro.');
+      return { authId: payload.sub, email: payload.email, _unsynced: true };
     }
 
     return user;

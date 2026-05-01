@@ -13,11 +13,11 @@
 - ✅ [Fase 3 — Banco de Dados](#fase-3--banco-de-dados)
 - ✅ [Fase 4 — Autenticação e RBAC](#fase-4--autenticação-e-rbac)
 - ✅ [Fase 5 — Módulo de Projetos + State Machine](#fase-5--módulo-de-projetos--state-machine)
-- [Fase 6 — Upload de Evidências](#fase-6--upload-de-evidências)
-- [Fase 7 — POC do Stripe Connect (Escrow)](#fase-7--poc-do-stripe-connect-escrow)
-- [Fase 8 — Matching e Contratos](#fase-8--matching-e-contratos)
-- [Fase 9 — Validação de Fases + Liberação de Pagamento](#fase-9--validação-de-fases--liberação-de-pagamento)
-- [Fase 10 — Notificações Push](#fase-10--notificações-push)
+- ✅ [Fase 6 — Upload de Evidências](#fase-6--upload-de-evidências)
+- ✅ [Fase 7 — POC do Stripe Connect (Escrow)](#fase-7--poc-do-stripe-connect-escrow)
+- ✅ [Fase 8 — Matching e Contratos](#fase-8--matching-e-contratos)
+- ✅ [Fase 9 — Validação de Fases + Liberação de Pagamento](#fase-9--validação-de-fases--liberação-de-pagamento)
+- ✅ [Fase 10 — Notificações Push](#fase-10--notificações-push)
 - [Fase 11 — Flutter App Cliente](#fase-11--flutter-app-cliente)
 - [Fase 12 — Flutter App Trabalhador](#fase-12--flutter-app-trabalhador)
 - [Fase 13 — React Admin Panel](#fase-13--react-admin-panel)
@@ -50,7 +50,7 @@
 | Railway | railway.app | Deploy backend | ⏳ (Fase 14) |
 | Stripe | stripe.com | Pagamentos + Escrow | ✅ (modo Test) |
 | Vercel | vercel.com | Deploy React admin | ⏳ (Fase 14) |
-| Firebase | firebase.google.com | Push notifications | ⏳ (Fase 10) |
+| Firebase | firebase.google.com | Push notifications | ✅ |
 | Sentry | sentry.io | Monitoramento de erros | ⏳ (Fase 14) |
 
 > **Importante:** No Stripe, crie a conta em modo **Test** primeiro. Só ative produção quando o MVP estiver validado.
@@ -752,7 +752,7 @@ Authorization: Bearer <access_token>
 
 ## ✅ Fase 5 — Módulo de Projetos + State Machine
 
-**Duração estimada: 2–3 dias** → ✅ **Concluída (DeepSeek V4 Reasoner)**
+**Duração estimada: 2–3 dias** → ✅ **Concluída (DeepSeek V4)**
 
 > State machine implementada com XState v5, módulo Projects com CRUD completo + transições de estado, módulo Phases com validação de fluxo de fases.
 
@@ -819,9 +819,9 @@ async updateStatus(projectId: string, event: string, userId: string) {
 
 ---
 
-## Fase 6 — Upload de Evidências
+## ✅ Fase 6 — Upload de Evidências
 
-**Duração estimada: 1 dia**
+**Duração estimada: 1 dia** → ✅ **Concluída**
 
 ### 6.1 Configurar Supabase Storage
 
@@ -879,10 +879,10 @@ async validatePhase(phaseId: string) {
 
 ---
 
-## Fase 7 — POC do Stripe Connect (Escrow)
+## ✅ Fase 7 — POC do Stripe Connect (Escrow)
 
-**Duração estimada: 3–4 dias**
-> Esta é a fase mais crítica. vamos Testar exaustivamente antes de avançar.
+**Duração estimada: 3–4 dias** → ✅ **Concluída**
+> Esta é a fase mais crítica. Testar exaustivamente antes de avançar.
 
 ### 7.1 Configurar Stripe Connect
 
@@ -1027,9 +1027,9 @@ stripe trigger payment_intent.succeeded
 
 ---
 
-## Fase 8 — Matching e Contratos
+## ✅ Fase 8 — Matching e Contratos
 
-**Duração estimada: 2 dias**
+**Duração estimada: 2 dias** → ✅ **Concluída**
 
 ### 8.1 Matching Manual (MVP)
 
@@ -1084,9 +1084,9 @@ async createContract(projectId: string, workerId: string) {
 
 ---
 
-## Fase 9 — Validação de Fases + Liberação de Pagamento
+## ✅ Fase 9 — Validação de Fases + Liberação de Pagamento
 
-**Duração estimada: 2 dias**
+**Duração estimada: 2 dias** → ✅ **Concluída**
 
 ### 9.1 Fluxo completo de validação
 
@@ -1175,6 +1175,21 @@ async handlePhaseValidated(payload: { phaseId: string }) {
 ## Fase 10 — Notificações Push
 
 **Duração estimada: 1 dia**
+
+**Status:** ✅ Concluída
+
+**Implementado nesta fase:**
+
+- Integração de [`firebase-admin`](ox-backend/package.json:34) no backend.
+- Criação de [`NotificationsModule`](ox-backend/src/modules/notifications/notifications.module.ts), [`NotificationsService`](ox-backend/src/modules/notifications/notifications.service.ts) e listeners de eventos.
+- Escuta dos eventos [`phase.validated`](ox-backend/src/modules/notifications/notifications.listeners.ts:9), [`phase.rejected`](ox-backend/src/modules/notifications/notifications.listeners.ts:14) e [`payment.released`](ox-backend/src/modules/notifications/notifications.listeners.ts:19).
+- Inclusão do campo [`fcmToken`](ox-backend/prisma/schema.prisma:50) em [`User`](ox-backend/prisma/schema.prisma:43).
+- Criação do endpoint [`PATCH /users/fcm-token`](ox-backend/src/modules/users/users.controller.ts:13) para registro do token do dispositivo.
+- Garantia de resiliência com [`try/catch`](ox-backend/src/modules/notifications/notifications.service.ts:45) silencioso para que falhas de push não quebrem o fluxo principal.
+
+**Observação importante:**
+
+- A migration do Prisma para [`fcmToken`](ox-backend/prisma/schema.prisma:50) foi criada em [`20260501001000_add_user_fcm_token/migration.sql`](ox-backend/prisma/migrations/20260501001000_add_user_fcm_token/migration.sql), porém [`prisma migrate dev`](ox-backend/package.json:9) não pôde ser concluído no banco atual por causa de drift já existente no ambiente Supabase. O código foi ajustado, o Prisma Client foi regenerado com sucesso e o build foi validado, mas a aplicação dessa migration no banco precisa seguir a estratégia adotada pelo projeto para tratar esse drift sem reset do schema.
 
 ### 10.1 Configurar Firebase Admin
 
@@ -1505,9 +1520,10 @@ git push origin feature/nome-da-feature    # push
 | 1 | ERD + endpoints documentados + wireframes | 1 | ✅ (wireframes ignorados) |
 | 2–3 | Backend estruturado + banco configurado | 1 | ✅ Fase 2 · ✅ Fase 3 |
 | 4 | Auth + RBAC funcionando | 1 | ✅ |
-| ✅ 5–6 | Projetos + fases + upload de evidências | 1–2 |
-| 7 | Escrow + Stripe Connect funcionando | 1–2 |
-| 8–9 | Matching + contratos + liberação de pagamento | 1–2 |
+| ✅ 5–6 | Projetos + fases + upload de evidências | 1–2 | ✅ |
+| ✅ 7 | Escrow + Stripe Connect funcionando | 1–2 | ✅ |
+| ✅ 8 | Matching + contratos | 1–2 | ✅ |
+| 9 | Validação de fases + liberação de pagamento | 1 |
 | 10 | Notificações push | 0.5 |
 | 11–12 | Apps Flutter (cliente + worker) | 3–4 |
 | 13 | Admin React | 1 |

@@ -47,6 +47,7 @@ model User {
   name      String
   email     String   @unique
   phone     String?
+  fcmToken  String?
   createdAt DateTime @default(now())
 
   projects  Project[]
@@ -63,6 +64,8 @@ model Worker {
   rating           Decimal  @default(0)
   shelterCertified Boolean  @default(false)
   available        Boolean  @default(true)
+
+  stripeAccountId String? // Stripe Connect Express account ID
 
   contracts Contract[]
   ratings   WorkerRating[]
