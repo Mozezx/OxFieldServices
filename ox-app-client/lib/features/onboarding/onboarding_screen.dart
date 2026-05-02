@@ -21,17 +21,17 @@ final _pages = [
   const _OnboardingPage(
     icon: LucideIcons.layoutList,
     title: 'Crie seu projeto',
-    subtitle: 'Descreva o serviÃ§o, defina fases e orÃ§amento com facilidade.',
+    subtitle: 'Descreva o serviço, defina fases e orçamento com facilidade.',
   ),
   const _OnboardingPage(
     icon: LucideIcons.users,
     title: 'Encontramos o profissional',
-    subtitle: 'Matching automÃ¡tico com trabalhadores certificados e bem avaliados.',
+    subtitle: 'Matching automático com trabalhadores certificados e bem avaliados.',
   ),
   const _OnboardingPage(
     icon: LucideIcons.shieldCheck,
-    title: 'Pague com seguranÃ§a',
-    subtitle: 'Escrow libera o valor sÃ³ apÃ³s sua aprovaÃ§Ã£o de cada fase.',
+    title: 'Pague com segurança',
+    subtitle: 'Escrow libera o valor só após sua aprovação de cada fase.',
   ),
 ];
 
@@ -112,7 +112,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 24),
                 child: OxButton(
-                  label: _page == _pages.length - 1 ? 'ComeÃ§ar' : 'Continuar',
+                  label: _page == _pages.length - 1 ? 'Começar' : 'Continuar',
                   onPressed: _next,
                 ),
               ),

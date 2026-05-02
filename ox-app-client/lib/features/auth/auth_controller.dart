@@ -13,6 +13,19 @@ class AuthController extends AsyncNotifier<void> {
     state = const AsyncLoading();
     state = await AsyncValue.guard(() async {
       await _supabase.auth.signInWithPassword(email: email, password: password);
+
+      final api = ref.read(apiClientProvider);
+      try {
+        final res = await api.dio.get(ApiEndpoints.authMe);
+        final role = res.data['role'] as String?;
+        if (role != null && role != 'client') {
+          await _supabase.auth.signOut();
+          throw Exception('Esta conta é de um prestador de serviços. Use o app OX Worker.');
+        }
+      } catch (e) {
+        if (e is Exception && e.toString().contains('prestador')) rethrow;
+        // Ignora falhas de rede — não bloqueia login por indisponibilidade do backend
+      }
     });
   }
 

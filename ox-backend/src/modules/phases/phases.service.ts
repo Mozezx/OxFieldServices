@@ -3,6 +3,7 @@ import {
   NotFoundException,
   BadRequestException,
   ForbiddenException,
+  Logger,
 } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { PrismaService } from '../../prisma/prisma.service';
@@ -11,6 +12,8 @@ import { PhaseStatus } from '@prisma/client';
 
 @Injectable()
 export class PhasesService {
+  private readonly logger = new Logger(PhasesService.name);
+
   constructor(
     private prisma: PrismaService,
     private eventEmitter: EventEmitter2,
@@ -100,7 +103,11 @@ export class PhasesService {
       where: { id },
       include: {
         project: {
-          select: { clientId: true, status: true },
+          select: {
+            clientId: true,
+            status: true,
+            contract: { select: { workerId: true } },
+          },
         },
       },
     });
@@ -139,11 +146,27 @@ export class PhasesService {
       );
     }
 
-    // Só pode iniciar fase se projeto estiver em execução
-    if (newStatus === 'in_progress' && phase.project.status !== 'in_execution') {
+    // Só pode iniciar ou retomar fase se projeto estiver em execução
+    if (
+      (newStatus === 'in_progress') &&
+      phase.project.status !== 'in_execution'
+    ) {
       throw new BadRequestException(
         'O projeto precisa estar em execução para iniciar fases',
       );
+    }
+
+    // Apenas o worker atribuído ao projeto pode iniciar/retomar fases
+    if (
+      (newStatus === 'in_progress') &&
+      user.role !== 'admin'
+    ) {
+      const worker = await this.prisma.worker.findUnique({ where: { userId } });
+      if (!worker || phase.project.contract?.workerId !== worker.id) {
+        throw new ForbiddenException(
+          'Apenas o worker atribuído ao projeto pode iniciar fases',
+        );
+      }
     }
 
     // Obrigatório ter evidências para enviar para revisão
@@ -196,11 +219,16 @@ export class PhasesService {
       throw new BadRequestException('Sem evidências para validar');
     }
 
-    if (phase.status !== 'under_review') {
-      throw new BadRequestException('Fase não está em revisão');
+    if (phase.status !== 'under_review' && phase.status !== 'evidence_uploaded') {
+      this.logger.warn(`Tentativa de validar fase ${phaseId} com status inválido: ${phase.status}`);
+      throw new BadRequestException(
+        `Fase precisa estar em revisão ou com evidências enviadas. Status atual: ${phase.status}`,
+      );
     }
 
     const newStatus: PhaseStatus = approved ? 'validated' : 'rejected';
+
+    this.logger.log(`Fase ${phaseId} ${approved ? 'aprovada' : 'rejeitada'} por usuário ${userId}`);
 
     const updated = await this.prisma.projectPhase.update({
       where: { id: phaseId },

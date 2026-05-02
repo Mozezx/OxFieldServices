@@ -22,8 +22,9 @@ async function bootstrap() {
   SwaggerModule.setup('api/docs', app, document);
 
   const port = process.env.PORT ?? 3000;
-  await app.listen(port);
+  await app.listen(Number(port), '0.0.0.0');
   console.log(`🚀 OX API rodando em http://localhost:${port}`);
+  console.log(`🌐 OX API na rede local: http://192.168.1.18:${port}`);
   console.log(`📄 Docs em http://localhost:${port}/api/docs`);
 }
 bootstrap();

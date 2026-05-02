@@ -1,16 +1,16 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { OnEvent } from '@nestjs/event-emitter';
 import { PrismaService } from '../../prisma/prisma.service';
-import { StripeService } from '../../modules/payments/stripe.service';
 
+/**
+ * Liberação ao worker é feita em PaymentsService.onPhaseValidated (por fase).
+ * Este handler apenas avança o projeto quando todas as fases estão validadas.
+ */
 @Injectable()
 export class PhaseValidatedHandler {
   private readonly logger = new Logger(PhaseValidatedHandler.name);
 
-  constructor(
-    private prisma: PrismaService,
-    private stripeService: StripeService,
-  ) {}
+  constructor(private prisma: PrismaService) {}
 
   @OnEvent('phase.validated')
   async handle(payload: { phaseId: string }) {
@@ -44,11 +44,8 @@ export class PhaseValidatedHandler {
       );
     } else if (escrow.status !== 'held') {
       this.logger.warn(
-        `phase.validated: escrow ${escrow.id} já está '${escrow.status}' — nada a fazer`,
+        `phase.validated: escrow ${escrow.id} já está '${escrow.status}'`,
       );
-    } else {
-      await this.stripeService.releaseSplitPayment(escrow.id);
-      this.logger.log(`Pagamento liberado — escrow ${escrow.id}`);
     }
 
     // Avança projeto para closing

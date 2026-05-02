@@ -10,6 +10,12 @@ import {
 import type { Request } from 'express';
 import { ApiExcludeController } from '@nestjs/swagger';
 import { StripeService } from './stripe.service';
+
+/** Campos usados do PaymentIntent em payment_intent.succeeded (Stripe SDK v22 não exporta PaymentIntent no root). */
+type PaymentIntentSucceededPayload = {
+  metadata?: { contractId?: string } | null;
+  latest_charge?: string | { id: string } | null;
+};
 import { PaymentsService } from './payments.service';
 
 @ApiExcludeController()
@@ -37,9 +43,14 @@ export class StripeWebhookController {
 
     switch (event.type) {
       case 'payment_intent.succeeded': {
-        const pi = event.data.object as { metadata?: { contractId?: string } };
-        if (pi.metadata?.contractId) {
-          await this.paymentsService.activateEscrow(pi.metadata.contractId);
+        const pi = event.data.object as PaymentIntentSucceededPayload;
+        const contractId = pi.metadata?.contractId;
+        const chargeId =
+          typeof pi.latest_charge === 'string'
+            ? pi.latest_charge
+            : pi.latest_charge?.id;
+        if (contractId) {
+          await this.paymentsService.activateEscrow(contractId, chargeId);
         }
         break;
       }

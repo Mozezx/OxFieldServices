@@ -13,6 +13,9 @@ import '../../features/projects/create_project_screen.dart';
 import '../../features/phases/phase_detail_screen.dart';
 import '../../features/phases/validate_phase_screen.dart';
 import '../../features/payments/payment_screen.dart';
+import '../../features/payments/payment_methods_screen.dart';
+import '../../features/notifications/notifications_screen.dart';
+import '../../features/profile/profile_screen.dart';
 import 'main_shell.dart';
 
 final _publicRoutes = {'/splash', '/onboarding', '/login', '/register'};
@@ -89,6 +92,18 @@ final routerProvider = Provider<GoRouter>((ref) {
             path: '/payments/:id',
             builder: (context, state) =>
                 PaymentScreen(contractId: state.pathParameters['id']!),
+          ),
+          GoRoute(
+            path: '/payment-methods',
+            builder: (context, state) => const PaymentMethodsScreen(),
+          ),
+          GoRoute(
+            path: '/notifications',
+            builder: (context, state) => const NotificationsScreen(),
+          ),
+          GoRoute(
+            path: '/profile',
+            builder: (context, state) => const ProfileScreen(),
           ),
         ],
       ),

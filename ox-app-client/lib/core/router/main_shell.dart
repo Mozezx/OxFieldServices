@@ -24,7 +24,7 @@ class MainShell extends StatelessWidget {
           ),
           BottomNavigationBarItem(
             icon: Icon(LucideIcons.bell),
-            label: 'NotificaÃ§Ãµes',
+            label: 'Notificações',
           ),
           BottomNavigationBarItem(
             icon: Icon(LucideIcons.user),
@@ -48,10 +48,10 @@ class MainShell extends StatelessWidget {
         context.go('/home');
         break;
       case 1:
-        // context.go('/notifications');
+        context.go('/notifications');
         break;
       case 2:
-        // context.go('/profile');
+        context.go('/profile');
         break;
     }
   }

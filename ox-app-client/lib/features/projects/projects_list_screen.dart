@@ -20,7 +20,7 @@ class ProjectsListScreen extends ConsumerWidget {
     final projectsAsync = ref.watch(projectsProvider);
     final filter = ref.watch(_filterProvider);
     final user = Supabase.instance.client.auth.currentUser;
-    final name = user?.email?.split('@').first ?? 'UsuÃ¡rio';
+    final name = user?.email?.split('@').first ?? 'Usuário';
 
     return Scaffold(
       appBar: OxAppBar(
@@ -45,7 +45,7 @@ class ProjectsListScreen extends ConsumerWidget {
           IconButton(
             icon: const Icon(LucideIcons.bell, size: 20),
             color: AppColors.textSecondary,
-            onPressed: () {},
+            onPressed: () => context.push('/notifications'),
           ),
         ],
       ),

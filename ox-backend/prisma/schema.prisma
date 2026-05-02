@@ -41,14 +41,15 @@ enum EscrowStatus {
 }
 
 model User {
-  id        String   @id @default(uuid())
-  authId    String   @unique // references auth.users.id (Supabase Auth)
-  role      UserRole
-  name      String
-  email     String   @unique
-  phone     String?
-  fcmToken  String?
-  createdAt DateTime @default(now())
+  id               String   @id @default(uuid())
+  authId           String   @unique // references auth.users.id (Supabase Auth)
+  role             UserRole
+  name             String
+  email            String   @unique
+  phone            String?
+  fcmToken         String?
+  stripeCustomerId String?  // referência ao Customer Stripe (cards salvos)
+  createdAt        DateTime @default(now())
 
   projects  Project[]
   worker    Worker?
@@ -129,6 +130,8 @@ model EscrowTxn {
   amount     Decimal
   status     EscrowStatus @default(held)
   releasedAt DateTime?
+  /// Charge Stripe (ch_...) do pagamento do cliente — obrigatório em transfers Connect para BR
+  stripeSourceChargeId String?
 
   payments Payment[]
 }
@@ -154,4 +157,10 @@ model WorkerRating {
   score     Int
   feedback  String?
   createdAt DateTime @default(now())
+}
+
+model Skill {
+  id    String @id @default(uuid())
+  name  String @unique // chave lowercase: "eletrica"
+  label String          // nome exibido: "Elétrica"
 }

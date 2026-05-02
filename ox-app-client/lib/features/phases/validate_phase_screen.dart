@@ -49,7 +49,7 @@ class ValidatePhaseScreen extends ConsumerWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'Validar â€” Fase ${phase.order}: ${phase.name}',
+                'Validar — Fase ${phase.order}: ${phase.name}',
                 style: const TextStyle(
                   color: AppColors.textPrimary,
                   fontSize: 20,
@@ -61,7 +61,7 @@ class ValidatePhaseScreen extends ConsumerWidget {
 
               // Evidence section
               const Text(
-                'EVIDÃŠNCIAS DO TRABALHADOR',
+                'EVIDÊNCIAS DO TRABALHADOR',
                 style: TextStyle(
                   color: AppColors.textSecondary,
                   fontSize: 12,
@@ -85,7 +85,7 @@ class ValidatePhaseScreen extends ConsumerWidget {
                       Icon(LucideIcons.alertCircle, color: AppColors.warning, size: 32),
                       SizedBox(height: 8),
                       Text(
-                        'Nenhuma evidÃªncia enviada',
+                        'Nenhuma evidência enviada',
                         style: TextStyle(color: AppColors.textSecondary, fontFamily: 'Inter'),
                       ),
                     ],
@@ -147,7 +147,7 @@ class ValidatePhaseScreen extends ConsumerWidget {
                     const SizedBox(width: 12),
                     Expanded(
                       child: Text(
-                        'Ao aprovar, â‚¬ ${phase.amount.toStringAsFixed(2)} serÃ¡ liberado ao trabalhador.',
+                        'Ao aprovar, € ${phase.amount.toStringAsFixed(2)} será liberado ao trabalhador.',
                         style: const TextStyle(
                           color: AppColors.textSecondary,
                           fontSize: 13,
@@ -161,7 +161,7 @@ class ValidatePhaseScreen extends ConsumerWidget {
               const SizedBox(height: 24),
 
               OxButton(
-                label: 'âœ“ Aprovar Fase',
+                label: '✓ Aprovar Fase',
                 isLoading: validationState is AsyncLoading,
                 onPressed: phase.evidences.isEmpty
                     ? null
@@ -169,7 +169,7 @@ class ValidatePhaseScreen extends ConsumerWidget {
               ),
               const SizedBox(height: 12),
               OxButton(
-                label: 'âœ— Rejeitar Fase',
+                label: '✕ Rejeitar Fase',
                 variant: OxButtonVariant.danger,
                 isLoading: validationState is AsyncLoading,
                 onPressed: () => _confirmValidation(context, ref, false),
@@ -215,8 +215,8 @@ class ValidatePhaseScreen extends ConsumerWidget {
         ),
         content: Text(
           approved
-              ? 'O pagamento da fase serÃ¡ liberado ao trabalhador.'
-              : 'O trabalhador deverÃ¡ reenviar as evidÃªncias.',
+              ? 'O pagamento da fase será liberado ao trabalhador.'
+              : 'O trabalhador deverá reenviar as evidências.',
           style: const TextStyle(color: AppColors.textSecondary, fontFamily: 'Inter'),
         ),
         actions: [

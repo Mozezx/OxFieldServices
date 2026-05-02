@@ -1,0 +1,53 @@
+name: ox_app_worker
+description: OX Field Services — App Trabalhador
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.3.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_localizations:
+    sdk: flutter
+
+  # HTTP & Auth
+  dio: ^5.4.0
+  supabase_flutter: ^2.3.0
+
+  # Navegação
+  go_router: ^13.2.0
+
+  # State Management
+  flutter_riverpod: ^2.5.0
+
+  # UI
+  google_fonts: ^6.2.1
+  lucide_flutter: ^1.0.0
+  cached_network_image: ^3.3.1
+  shimmer: ^3.0.0
+
+  # Funcionalidades
+  image_picker: ^1.0.7
+  firebase_core: ^2.27.0
+  firebase_messaging: ^14.7.19
+  shared_preferences: ^2.2.3
+  intl: ^0.20.0
+  percent_indicator: ^4.2.3
+
+  # Stripe Connect onboarding (link externo)
+  url_launcher: ^6.2.6
+  http_parser: ^4.0.2
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^3.0.0
+
+flutter:
+  uses-material-design: true
+
+  assets:
+    - assets/logo.webp
+    - assets/images/

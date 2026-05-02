@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lucide_flutter/lucide_flutter.dart';
@@ -33,7 +33,7 @@ class PhaseDetailScreen extends ConsumerWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Fase ${phase.order} â€” ${phase.name}',
+                  'Fase ${phase.order} — ${phase.name}',
                   style: const TextStyle(
                     color: AppColors.textPrimary,
                     fontSize: 20,
@@ -49,7 +49,7 @@ class PhaseDetailScreen extends ConsumerWidget {
                   ),
                   const SizedBox(width: 12),
                   Text(
-                    'â‚¬ ${phase.amount.toStringAsFixed(2)}',
+                    '€ ${phase.amount.toStringAsFixed(2)}',
                     style: const TextStyle(
                       color: AppColors.textSecondary,
                       fontFamily: 'Inter',
@@ -60,7 +60,7 @@ class PhaseDetailScreen extends ConsumerWidget {
 
                 if (phase.evidences.isNotEmpty) ...[
                   const Text(
-                    'EVIDÃŠNCIAS',
+                    'EVIDÊNCIAS',
                     style: TextStyle(
                       color: AppColors.textSecondary,
                       fontSize: 12,
@@ -79,14 +79,17 @@ class PhaseDetailScreen extends ConsumerWidget {
                       mainAxisSpacing: 8,
                     ),
                     itemCount: phase.evidences.length,
-                    itemBuilder: (ctx, i) => ClipRRect(
-                      borderRadius: BorderRadius.circular(8),
-                      child: Image.network(
-                        phase.evidences[i].url,
-                        fit: BoxFit.cover,
-                        errorBuilder: (_, __, ___) => Container(
-                          color: AppColors.surface2,
-                          child: const Icon(LucideIcons.image, color: AppColors.textSecondary),
+                    itemBuilder: (ctx, i) => GestureDetector(
+                      onTap: () => _showFullscreen(context, phase.evidences[i].url),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(8),
+                        child: Image.network(
+                          phase.evidences[i].url,
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, __, ___) => Container(
+                            color: AppColors.surface2,
+                            child: const Icon(LucideIcons.image, color: AppColors.textSecondary),
+                          ),
                         ),
                       ),
                     ),
@@ -106,7 +109,7 @@ class PhaseDetailScreen extends ConsumerWidget {
                         Icon(LucideIcons.image, color: AppColors.textDisabled, size: 40),
                         SizedBox(height: 8),
                         Text(
-                          'Nenhuma evidÃªncia enviada ainda',
+                          'Nenhuma evidência enviada ainda',
                           style: TextStyle(
                             color: AppColors.textSecondary,
                             fontFamily: 'Inter',
@@ -132,12 +135,49 @@ class PhaseDetailScreen extends ConsumerWidget {
     );
   }
 
+  void _showFullscreen(BuildContext context, String url) {
+    showDialog(
+      context: context,
+      builder: (dialogContext) => Dialog(
+        backgroundColor: Colors.black,
+        insetPadding: EdgeInsets.zero,
+        child: SizedBox.expand(
+          child: Stack(
+            children: [
+              Center(
+                child: InteractiveViewer(
+                  child: Image.network(url, fit: BoxFit.contain),
+                ),
+              ),
+              SafeArea(
+                child: Align(
+                  alignment: Alignment.topRight,
+                  child: Padding(
+                    padding: const EdgeInsets.all(8),
+                    child: Material(
+                      color: Colors.black54,
+                      shape: const CircleBorder(),
+                      child: IconButton(
+                        icon: const Icon(LucideIcons.x, color: Colors.white),
+                        onPressed: () => Navigator.of(dialogContext).pop(),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   String _phaseStatusLabel(String status) {
     switch (status) {
       case 'validated': return 'Validada';
-      case 'under_review': return 'Em revisÃ£o';
-      case 'evidence_uploaded': return 'EvidÃªncias enviadas';
-      case 'in_progress': return 'Em execuÃ§Ã£o';
+      case 'under_review': return 'Em revisão';
+      case 'evidence_uploaded': return 'Evidências enviadas';
+      case 'in_progress': return 'Em execução';
       case 'rejected': return 'Rejeitada';
       default: return 'Pendente';
     }

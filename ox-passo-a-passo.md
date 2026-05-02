@@ -19,10 +19,12 @@
 - ✅ [Fase 9 — Validação de Fases + Liberação de Pagamento](#fase-9--validação-de-fases--liberação-de-pagamento)
 - ✅ [Fase 10 — Notificações Push](#fase-10--notificações-push)
 - ✅ [Fase 11 — Flutter App Cliente](#fase-11--flutter-app-cliente)
-- [Fase 12 — Flutter App Trabalhador](#fase-12--flutter-app-trabalhador)
-- [Fase 13 — React Admin Panel](#fase-13--react-admin-panel)
+- ✅ [Fase 12 — Flutter App Trabalhador](#fase-12--flutter-app-trabalhador)
+- ✅ [Fase 13 — React Admin Panel](#fase-13--react-admin-panel)
 - [Fase 14 — Deploy do MVP](#fase-14--deploy-do-mvp)
 - [Fase 15 — Materials Hub (Pós-MVP)](#fase-15--materials-hub-pós-mvp)
+- [Fase 16 — Time Tracking por Técnico/Fase (Pós-MVP)](#fase-16--time-tracking-por-técnicofase-pós-mvp)
+- [Fase 17 — Geolocalização + Mapa em Tempo Real (Pós-MVP)](#fase-17--geolocalização--mapa-em-tempo-real-pós-mvp)
 
 ---
 
@@ -1334,49 +1336,79 @@ Implemente nesta ordem:
 
 ---
 
-## Fase 12 — Flutter App Trabalhador
+## ✅ Fase 12 — Flutter App Trabalhador
 
-**Duração estimada: 1 semana**
+**Duração estimada: 1 semana** → ✅ **Concluída**
 
-```bash
-flutter create ox_app_worker
-# Mesmas dependências do app cliente
+**Implementado nesta fase:**
+
+- Design System completo reutilizado do App Cliente: `AppColors`, `AppGradients`, `AppTheme` (Material 3 dark), widgets `OxButton`, `OxInput`, `OxBadge`, `OxAppBar`, `OxEmptyState`, `OxJobCardSkeleton`
+- `GoRouter` com `ShellRoute`, guard de auth via Supabase session
+- Bottom navigation com **4 tabs**: Jobs (briefcase), Em Execução (zap), Pagamentos (wallet), Perfil (user)
+- Supabase Flutter auth + Dio com interceptor JWT + Riverpod providers
+- **Splash Screen** com animação scale+fade
+- **Auth**: Login + Registro (role fixo como `worker`) com validação inline
+- **Jobs Dashboard** (`/home`): Toggle de disponibilidade on/off, rating em destaque, lista de jobs disponíveis com barra de compatibilidade (match score), lista de jobs ativos com botão "Continuar execução"
+- **Job Detail** (`/jobs/:id`): Descrição, fases + valores, total, botões "Aceitar" (com dialog de confirmação) e "Recusar"
+- **Phase Execution** (`/execution/:phaseId`): Checklist interativo da fase, grid de evidências carregadas, botão upload, botão "Enviar para Revisão" (desabilitado até 3 evidências) com dialog de confirmação
+- **Upload Evidence** (`/execution/:phaseId/upload`): Câmera + galeria com `image_picker`, grid de preview, remoção individual, upload em batch
+- **Payments History** (`/payments`): Card de total recebido em destaque (verde `#03FC30`), lista de transações com status
+- **Worker Profile** (`/profile`): Avatar, rating com estrelas, disponibilidade, certificações, skills como chips, toggle de disponibilidade, logout com confirmação
+- `flutter analyze`: **0 issues**
+
+### Estrutura implementada
+
 ```
-
-### Telas prioritárias
-
-1. Login
-2. Dashboard de jobs disponíveis (com matching)
-3. Detalhe de um job (aceitar/recusar)
-4. Tela de execução de fase + upload de fotos/vídeo
-5. Preencher checklist da fase
-6. Histórico de pagamentos recebidos
-7. Perfil e rating
+ox-app-worker/lib/
+├── main.dart
+├── app.dart
+├── core/
+│   ├── theme/        # AppColors, AppGradients, AppTheme (idêntico ao cliente)
+│   ├── widgets/      # OxButton, OxInput, OxBadge, OxAppBar, OxEmptyState, OxJobCardSkeleton
+│   ├── api/          # ApiClient (Dio + interceptor JWT), ApiEndpoints
+│   ├── auth/         # auth_provider, token_storage
+│   └── router/       # GoRouter + MainShell (4 tabs)
+└── features/
+    ├── splash/       # SplashScreen com animação
+    ├── auth/         # login_screen, register_screen, auth_controller
+    ├── jobs/         # jobs_dashboard_screen, job_detail_screen, jobs_provider
+    ├── execution/    # phase_execution_screen, upload_evidence_screen, execution_provider
+    ├── payments/     # payments_history_screen, payments_provider
+    └── profile/      # worker_profile_screen, profile_provider
+```
 
 ---
 
-## Fase 13 — React Admin Panel
+## ✅ Fase 13 — React Admin Panel
 
-**Duração estimada: 1 semana**
+**Duração estimada: 1 semana** → ✅ **Concluída**
+
+**Implementado nesta fase:**
+
+- Projeto Next.js 14 (App Router) + TypeScript + Tailwind CSS em `ox-admin/`
+- Design system OX: cores primárias (`#092F3D`, `#03FC30`, `#0D3F52`) configuradas no `tailwind.config.ts`
+- Middleware Supabase SSR com proteção de rotas: não-autenticados → `/login`, admin logado → `/projects`
+- **Lib layer:** `api.ts` (Axios + interceptor JWT), clientes Supabase (browser + server), `lib/auth.ts` (Server Actions), React Query hooks (`useProjects`, `useWorkers`, `usePayments`)
+- **UI components:** `Button` (4 variantes), `Card`, `Badge` (9 status), `Input` (com toggle senha), `Table`, `Modal` (Framer Motion), `Skeleton` / `TableSkeleton`
+- **Layout:** `Sidebar` colapsável (240px/64px), `Header`, `PageHeader`
+- **Feature components:** `ProjectsTable`, `ProjectStatusSelect` (transições XState-aware), `PhaseTimeline`, `WorkersTable`, `WorkerRatingStars`, `PaymentsChart` (Recharts), `CandidatesCard`
+- **Páginas:**
+  - `/login` — tela de login com logo OX, fundo `#092F3D`, card `#0D3F52`
+  - `/projects` — lista com filtro de status + busca + exportar CSV
+  - `/projects/[id]` — detalhe com timeline de fases, evidências, ações de status
+  - `/workers` — lista com busca por nome/skill, rating, disponibilidade
+  - `/workers/[id]` — perfil completo com skills, certificações
+  - `/payments` — 3 KPI cards, gráfico de barras semanal, tabela de transações
+  - `/matching/[projectId]` — candidatos com barra de match %, atribuição com confirmação modal
+- `react-hot-toast` integrado para feedback de ações
+
+### Para instalar as dependências
 
 ```bash
-npx create-next-app@latest ox-admin --typescript --tailwind --app
 cd ox-admin
-
-npm install axios
-npm install @tanstack/react-query
-npm install recharts        # gráficos
-npm install lucide-react    # ícones
+npm install
+npm run dev  # porta 3001
 ```
-
-### Páginas prioritárias
-
-1. `/login` — autenticação admin
-2. `/projects` — lista com filtro por status
-3. `/projects/[id]` — detalhe + mudar status manualmente
-4. `/workers` — lista de trabalhadores + ratings
-5. `/payments` — relatório financeiro (escrow, splits)
-6. `/matching/[projectId]` — ver candidatos + atribuir manualmente
 
 ---
 
@@ -1498,6 +1530,365 @@ jobs:
 
 ---
 
+## Fase 16 — Time Tracking por Técnico/Fase (Pós-MVP)
+
+**Duração estimada: 1–2 semanas**
+> Só inicie após o MVP estar validado com usuários reais. Alimenta o matching com dados reais de desempenho.
+
+### Objetivo
+
+Registrar automaticamente quanto tempo cada técnico leva em cada fase, por tipo de projeto. Usar esse histórico para melhorar o algoritmo de matching (preferir técnicos mais rápidos e consistentes).
+
+### 16.1 Schema — adicionar ao banco
+
+```prisma
+// Adicionar em ProjectPhase
+model ProjectPhase {
+  // ... campos existentes ...
+  startedAt   DateTime?   // quando status mudou para in_progress
+  completedAt DateTime?   // quando status mudou para validated
+}
+
+// Tabela de histórico de transições (auditoria completa)
+model PhaseStatusHistory {
+  id        String       @id @default(uuid())
+  phaseId   String
+  phase     ProjectPhase @relation(fields: [phaseId], references: [id])
+  fromStatus String
+  toStatus   String
+  changedBy  String      // userId
+  changedAt  DateTime    @default(now())
+}
+```
+
+### 16.2 Capturar timestamps automaticamente
+
+```typescript
+// No phases.service.ts — ao mudar status da fase
+async updatePhaseStatus(phaseId: string, newStatus: PhaseStatus, userId: string) {
+  const data: any = { status: newStatus };
+
+  if (newStatus === 'in_progress') data.startedAt = new Date();
+  if (newStatus === 'validated')   data.completedAt = new Date();
+
+  await this.prisma.projectPhase.update({ where: { id: phaseId }, data });
+
+  // Registrar histórico
+  await this.prisma.phaseStatusHistory.create({
+    data: { phaseId, fromStatus: currentStatus, toStatus: newStatus, changedBy: userId }
+  });
+}
+```
+
+### 16.3 Algoritmo de métricas por técnico
+
+```typescript
+// src/modules/workers/worker-metrics.service.ts
+
+async getWorkerPhaseMetrics(workerId: string) {
+  const phases = await this.prisma.projectPhase.findMany({
+    where: {
+      status: 'validated',
+      startedAt: { not: null },
+      completedAt: { not: null },
+      project: { contract: { workerId } },
+    },
+  });
+
+  // Tempo médio por fase (em horas)
+  const avgHours = phases.reduce((sum, p) => {
+    const hours = (p.completedAt.getTime() - p.startedAt.getTime()) / 3_600_000;
+    return sum + hours;
+  }, 0) / phases.length;
+
+  return { workerId, totalPhases: phases.length, avgHoursPerPhase: avgHours };
+}
+```
+
+### 16.4 Integrar no Matching
+
+```typescript
+// Estender critérios do matching.service.ts
+// Priorizar técnicos com menor tempo médio por fase + maior rating
+orderBy: [{ rating: 'desc' }, { avgPhaseCompletionHours: 'asc' }]
+```
+
+### 16.5 Exibir no Admin Panel
+
+- Tabela de técnicos com coluna "Tempo médio por fase"
+- Gráfico de barras: comparação entre técnicos por tipo de obra
+- Alertas para fases que passam do prazo estimado
+
+---
+
+## Fase 17 — Geolocalização + Mapa em Tempo Real (Pós-MVP)
+
+**Duração estimada: 2–3 semanas**
+> Depende do Admin Panel (Fase 13) estar concluído. Requer conta Google Cloud com Maps API ativada.
+
+### Objetivo
+
+1. **Geolocalização de evidências** — ao fazer upload de uma foto/vídeo, o app worker captura e persiste a coordenada GPS. O admin vê um mapa com pins de onde cada evidência foi registrada.
+2. **Localização em tempo real** — o app worker transmite a posição do técnico periodicamente enquanto ele está com um job ativo. O admin monitora todos os técnicos em campo num mapa ao vivo.
+
+### 17.1 APIs e serviços necessários
+
+| Serviço | Para que serve | Custo |
+|---|---|---|
+| **Google Maps JavaScript API** | Mapa interativo no Admin React | Pago por carregamento |
+| **Google Maps SDK Flutter** | Renderizar mapa no app worker | Grátis até 1k req/dia |
+| **Geolocator (Flutter)** | Capturar GPS do dispositivo | Gratuito (pacote) |
+| **Supabase Realtime** | Transmitir posição ao vivo via WebSocket | Incluso no plano |
+
+```bash
+# Google Cloud Console
+# 1. Criar projeto → Ativar "Maps JavaScript API" e "Maps SDK for Android/iOS"
+# 2. Gerar API Key → restringir por SHA-1 (Android) e Bundle ID (iOS)
+# 3. Adicionar GOOGLE_MAPS_API_KEY no .env do backend e no Flutter
+```
+
+### 17.2 Schema — geolocalização nas evidências
+
+```prisma
+// Adicionar em PhaseEvidence
+model PhaseEvidence {
+  // ... campos existentes ...
+  latitude   Float?
+  longitude  Float?
+  accuracy   Float?   // precisão em metros (útil para validar fraude)
+}
+
+// Nova tabela — posição em tempo real dos técnicos
+model WorkerLocation {
+  id        String   @id @default(uuid())
+  workerId  String
+  worker    Worker   @relation(fields: [workerId], references: [id])
+  latitude  Float
+  longitude Float
+  accuracy  Float?
+  recordedAt DateTime @default(now())
+
+  @@index([workerId, recordedAt])
+}
+```
+
+```bash
+npx prisma migrate dev --name add_geolocation
+```
+
+### 17.3 Flutter — capturar GPS no upload de evidência
+
+```yaml
+# pubspec.yaml
+dependencies:
+  geolocator: ^12.0.0
+  google_maps_flutter: ^2.9.0
+```
+
+```dart
+// lib/features/execution/upload_evidence_screen.dart
+
+import 'package:geolocator/geolocator.dart';
+
+Future<Position?> _getCurrentPosition() async {
+  final permission = await Geolocator.requestPermission();
+  if (permission == LocationPermission.denied) return null;
+  return Geolocator.getCurrentPosition(
+    desiredAccuracy: LocationAccuracy.high,
+  );
+}
+
+Future<void> _uploadWithLocation(File file) async {
+  final position = await _getCurrentPosition();
+  await ref.read(executionProvider.notifier).uploadEvidence(
+    file: file,
+    latitude: position?.latitude,
+    longitude: position?.longitude,
+    accuracy: position?.accuracy,
+  );
+}
+```
+
+### 17.4 Flutter — transmitir posição em tempo real
+
+```dart
+// lib/core/location/location_service.dart
+// Ativo apenas enquanto o worker tem um job com status in_progress
+
+import 'package:geolocator/geolocator.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+
+class LocationService {
+  StreamSubscription<Position>? _sub;
+
+  void startTracking(String workerId) {
+    _sub = Geolocator.getPositionStream(
+      locationSettings: const LocationSettings(
+        accuracy: LocationAccuracy.high,
+        distanceFilter: 20, // só envia se mover mais de 20m
+      ),
+    ).listen((position) async {
+      await Supabase.instance.client.from('worker_locations').insert({
+        'worker_id': workerId,
+        'latitude': position.latitude,
+        'longitude': position.longitude,
+        'accuracy': position.accuracy,
+      });
+    });
+  }
+
+  void stopTracking() => _sub?.cancel();
+}
+```
+
+```dart
+// Iniciar tracking ao aceitar job, parar ao concluir última fase
+// lib/features/jobs/job_detail_screen.dart
+ref.read(locationServiceProvider).startTracking(workerId);
+```
+
+### 17.5 Backend — endpoint para salvar localização
+
+```typescript
+// src/modules/workers/workers.controller.ts
+
+@Post('location')
+@UseGuards(JwtAuthGuard, RolesGuard)
+@Roles('worker')
+async updateLocation(
+  @Req() req: any,
+  @Body() body: { latitude: number; longitude: number; accuracy?: number },
+) {
+  return this.workersService.saveLocation(req.user.id, body);
+}
+
+// src/modules/workers/workers.service.ts
+async saveLocation(userId: string, dto: { latitude: number; longitude: number; accuracy?: number }) {
+  const worker = await this.prisma.worker.findUnique({ where: { userId } });
+  return this.prisma.workerLocation.create({
+    data: { workerId: worker.id, ...dto },
+  });
+}
+
+// Endpoint para o admin buscar última posição de cada técnico ativo
+@Get('locations/live')
+@UseGuards(JwtAuthGuard, RolesGuard)
+@Roles('admin')
+async getLiveLocations() {
+  // Última posição de cada worker nos últimos 10 minutos
+  const since = new Date(Date.now() - 10 * 60 * 1000);
+  return this.prisma.$queryRaw`
+    SELECT DISTINCT ON (worker_id)
+      worker_id, latitude, longitude, accuracy, recorded_at
+    FROM worker_locations
+    WHERE recorded_at > ${since}
+    ORDER BY worker_id, recorded_at DESC
+  `;
+}
+```
+
+### 17.6 Admin Panel — mapa de evidências por fase
+
+```tsx
+// ox-admin/app/projects/[id]/map/page.tsx
+// Instalar: npm install @react-google-maps/api
+
+import { GoogleMap, Marker, InfoWindow } from '@react-google-maps/api';
+
+export default function ProjectEvidenceMap({ evidences }) {
+  return (
+    <GoogleMap
+      mapContainerStyle={{ width: '100%', height: '500px' }}
+      center={{ lat: evidences[0].latitude, lng: evidences[0].longitude }}
+      zoom={15}
+    >
+      {evidences.map((ev) => (
+        <Marker
+          key={ev.id}
+          position={{ lat: ev.latitude, lng: ev.longitude }}
+          label={ev.phase.name}
+        />
+      ))}
+    </GoogleMap>
+  );
+}
+```
+
+### 17.7 Admin Panel — mapa de técnicos em tempo real
+
+```tsx
+// ox-admin/app/workers/live-map/page.tsx
+// Usa Supabase Realtime para atualizar sem polling
+
+import { useEffect, useState } from 'react';
+import { supabase } from '@/lib/supabase';
+import { GoogleMap, Marker } from '@react-google-maps/api';
+
+export default function WorkerLiveMap() {
+  const [locations, setLocations] = useState([]);
+
+  useEffect(() => {
+    // Carregar posições atuais
+    fetchLiveLocations().then(setLocations);
+
+    // Escutar novas inserções em tempo real
+    const channel = supabase
+      .channel('worker-locations')
+      .on('postgres_changes', {
+        event: 'INSERT',
+        schema: 'public',
+        table: 'worker_locations',
+      }, (payload) => {
+        setLocations((prev) => {
+          const updated = prev.filter(l => l.workerId !== payload.new.worker_id);
+          return [...updated, payload.new];
+        });
+      })
+      .subscribe();
+
+    return () => supabase.removeChannel(channel);
+  }, []);
+
+  return (
+    <GoogleMap mapContainerStyle={{ width: '100%', height: '70vh' }} zoom={12}>
+      {locations.map((loc) => (
+        <Marker
+          key={loc.workerId}
+          position={{ lat: loc.latitude, lng: loc.longitude }}
+          title={loc.workerName}
+          icon="/icons/worker-pin.png"
+        />
+      ))}
+    </GoogleMap>
+  );
+}
+```
+
+### 17.8 Considerações de privacidade
+
+- **Consentimento explícito:** exibir dialog ao primeiro login do worker explicando que a localização será compartilhada com o admin durante jobs ativos.
+- **Tracking limitado:** só transmitir posição enquanto houver um job com status `in_progress`. Parar ao completar ou recusar.
+- **Retenção de dados:** manter `worker_locations` por no máximo 90 dias (GDPR/LGPD). Criar job no Bull para limpeza periódica.
+- **Precisão mínima:** ignorar registros com `accuracy > 50m` para evitar dados ruins num mapa.
+
+### 17.9 Checklist de entrega
+
+```
+[ ] Google Maps API Key configurada (Android + iOS + Web)
+[ ] Campo latitude/longitude em PhaseEvidence
+[ ] Tabela WorkerLocation criada e indexada
+[ ] Flutter captura GPS no upload de evidência
+[ ] Flutter transmite posição a cada 20m de movimento
+[ ] Backend salva localização e expõe endpoint /workers/locations/live
+[ ] Admin: página de mapa por projeto com pins de evidências
+[ ] Admin: página de mapa ao vivo com todos técnicos em campo
+[ ] Supabase Realtime configurado na tabela worker_locations
+[ ] Dialog de consentimento no app worker
+[ ] Job de limpeza de localizações antigas (>90 dias)
+```
+
+---
+
 ## Referência Rápida — Comandos do Dia a Dia
 
 ```bash
@@ -1542,11 +1933,13 @@ git push origin feature/nome-da-feature    # push
 | 9 | Validação de fases + liberação de pagamento | 1 |
 | 10 | Notificações push | 0.5 |
 | ✅ 11 | App Flutter Cliente | 1–2 | ✅ |
-| 12 | App Flutter Trabalhador | 1–2 |
-| 13 | Admin React | 1 |
+| ✅ 12 | App Flutter Trabalhador | 1–2 | ✅ |
+| ✅ 13 | Admin React | 1 | ✅ |
 | 14 | Deploy MVP em produção | 0.5 |
 | **Total MVP** | **Sistema funcionando end-to-end** | **~14–16 semanas** |
-| 15+ | Materials Hub + melhorias | Pós-MVP |
+| 15 | Materials Hub | Pós-MVP |
+| 16 | Time Tracking por técnico/fase + métricas de matching | Pós-MVP |
+| 17 | Geolocalização de evidências + mapa ao vivo de técnicos | Pós-MVP |
 
 ---
 

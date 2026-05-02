@@ -6,14 +6,15 @@ import 'package:lucide_flutter/lucide_flutter.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/widgets/ox_app_bar.dart';
 import '../../core/widgets/ox_badge.dart';
+import '../../core/widgets/ox_button.dart';
 import 'project_provider.dart';
 
 String _phaseStatusLabel(String status) {
   switch (status) {
     case 'validated': return 'Validada';
-    case 'under_review': return 'Em revisÃ£o';
-    case 'evidence_uploaded': return 'EvidÃªncias enviadas';
-    case 'in_progress': return 'Em execuÃ§Ã£o';
+    case 'under_review': return 'Em revisão';
+    case 'evidence_uploaded': return 'Evidências enviadas';
+    case 'in_progress': return 'Em execução';
     case 'rejected': return 'Rejeitada';
     default: return 'Pendente';
   }
@@ -30,14 +31,42 @@ OxBadgeStatus _phaseBadge(String status) {
   }
 }
 
-class ProjectDetailScreen extends ConsumerWidget {
+class ProjectDetailScreen extends ConsumerStatefulWidget {
   const ProjectDetailScreen({super.key, required this.projectId});
 
   final String projectId;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final projectAsync = ref.watch(projectDetailProvider(projectId));
+  ConsumerState<ProjectDetailScreen> createState() => _ProjectDetailScreenState();
+}
+
+class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
+  bool _isSubmitting = false;
+
+  Future<void> _submitForValidation() async {
+    setState(() => _isSubmitting = true);
+    await ref.read(projectsNotifierProvider.notifier).submitForValidation(widget.projectId);
+    if (!mounted) return;
+    final notifierState = ref.read(projectsNotifierProvider);
+    if (notifierState.hasError) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Erro ao enviar: ${notifierState.error}'),
+          backgroundColor: AppColors.error,
+        ),
+      );
+    } else {
+      ref.invalidate(projectDetailProvider(widget.projectId));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Projeto enviado para validação!')),
+      );
+    }
+    if (mounted) setState(() => _isSubmitting = false);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final projectAsync = ref.watch(projectDetailProvider(widget.projectId));
 
     return Scaffold(
       appBar: const OxAppBar(title: 'Detalhes do Projeto'),
@@ -78,6 +107,116 @@ class ProjectDetailScreen extends ConsumerWidget {
               _InfoSection(project: project),
               const SizedBox(height: 24),
 
+              // Draft submit section
+              if (project.status == 'draft') ...[
+                Container(
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    color: AppColors.surface,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(
+                      color: AppColors.accent.withValues(alpha: 0.4),
+                    ),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Row(
+                        children: [
+                          Icon(LucideIcons.send, size: 18, color: AppColors.accent),
+                          SizedBox(width: 10),
+                          Text(
+                            'Rascunho salvo',
+                            style: TextStyle(
+                              color: AppColors.textPrimary,
+                              fontWeight: FontWeight.w700,
+                              fontFamily: 'Inter',
+                              fontSize: 16,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      const Text(
+                        'Este projeto está salvo como rascunho. Envie para validação para iniciar o processo de matching com trabalhadores.',
+                        style: TextStyle(
+                          color: AppColors.textSecondary,
+                          fontSize: 13,
+                          fontFamily: 'Inter',
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      OxButton(
+                        label: 'Enviar para Validação',
+                        icon: LucideIcons.send,
+                        isLoading: _isSubmitting,
+                        onPressed: _isSubmitting ? null : _submitForValidation,
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 24),
+              ],
+
+              // Worker: assinar contrato
+              if (project.workerNeedsToSign) ...[
+                Container(
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    color: AppColors.surface,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(
+                      color: AppColors.accent.withValues(alpha: 0.4),
+                    ),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Row(
+                        children: [
+                          Icon(LucideIcons.filePen, size: 18, color: AppColors.accent),
+                          SizedBox(width: 10),
+                          Text(
+                            'Assinar Contrato',
+                            style: TextStyle(
+                              color: AppColors.textPrimary,
+                              fontWeight: FontWeight.w700,
+                              fontFamily: 'Inter',
+                              fontSize: 16,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      const Text(
+                        'Assine o contrato para confirmar sua participação neste projeto.',
+                        style: TextStyle(
+                          color: AppColors.textSecondary,
+                          fontSize: 13,
+                          fontFamily: 'Inter',
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      OxButton(
+                        label: 'Assinar Contrato',
+                        icon: LucideIcons.filePen,
+                        isLoading: _isSubmitting,
+                        onPressed: _isSubmitting
+                            ? null
+                            : () async {
+                                setState(() => _isSubmitting = true);
+                                await ref
+                                    .read(projectsNotifierProvider.notifier)
+                                    .signContract(project.contractId!, widget.projectId);
+                                if (mounted) setState(() => _isSubmitting = false);
+                              },
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 24),
+              ],
+
               // Phases
               const Text(
                 'FASES',
@@ -100,6 +239,57 @@ class ProjectDetailScreen extends ConsumerWidget {
 
               const SizedBox(height: 24),
 
+              if (project.needsPayment) ...[
+                Container(
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    color: AppColors.surface,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(
+                      color: AppColors.accent.withValues(alpha: 0.4),
+                    ),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Row(
+                        children: [
+                          Icon(LucideIcons.lock,
+                              size: 18, color: AppColors.accent),
+                          SizedBox(width: 10),
+                          Text(
+                            'Pagamento necessário',
+                            style: TextStyle(
+                              color: AppColors.textPrimary,
+                              fontWeight: FontWeight.w700,
+                              fontFamily: 'Inter',
+                              fontSize: 16,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      const Text(
+                        'O trabalhador foi designado e aguarda o início. Pague para liberar a execução das fases.',
+                        style: TextStyle(
+                          color: AppColors.textSecondary,
+                          fontSize: 13,
+                          fontFamily: 'Inter',
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      OxButton(
+                        label: 'Pagar e Iniciar Projeto',
+                        icon: LucideIcons.creditCard,
+                        onPressed: () =>
+                            context.push('/payments/${project.contractId}'),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 24),
+              ],
+
               // Payment section
               _PaymentSection(project: project),
             ],
@@ -111,8 +301,10 @@ class ProjectDetailScreen extends ConsumerWidget {
 
   String _statusLabel(String status) {
     switch (status) {
-      case 'in_execution': return 'Em ExecuÃ§Ã£o';
-      case 'closed': return 'ConcluÃ­do';
+      case 'draft': return 'Rascunho';
+      case 'in_validation': return 'Em Validação';
+      case 'in_execution': return 'Em Execução';
+      case 'closed': return 'Concluído';
       case 'matched': return 'Match feito';
       case 'contract_signed': return 'Contrato assinado';
       case 'active_escrow': return 'Escrow ativo';
@@ -141,7 +333,7 @@ class _InfoSection extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Text(
-            'INFORMAÃ‡Ã•ES',
+            'INFORMAÇÕES',
             style: TextStyle(
               color: AppColors.textSecondary,
               fontSize: 12,
@@ -156,7 +348,7 @@ class _InfoSection extends StatelessWidget {
           _InfoRow(
             icon: LucideIcons.euro,
             label: 'Valor Total',
-            value: 'â‚¬ ${project.budget.toStringAsFixed(2)}',
+            value: '€ ${project.budget.toStringAsFixed(2)}',
           ),
           if (project.deadline != null)
             _InfoRow(
@@ -239,7 +431,7 @@ class _PhaseItem extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Fase ${phase.order} â€” ${phase.name}',
+                    'Fase ${phase.order} — ${phase.name}',
                     style: const TextStyle(
                       color: AppColors.textPrimary,
                       fontSize: 14,
@@ -327,18 +519,18 @@ class _PaymentSection extends StatelessWidget {
           _InfoRow(
             icon: LucideIcons.lock,
             label: 'Escrow',
-            value: 'â‚¬ ${project.budget.toStringAsFixed(2)} bloqueado',
+            value: '€ ${project.budget.toStringAsFixed(2)} bloqueado',
           ),
           _InfoRow(
             icon: LucideIcons.checkCircle2,
             label: 'Liberado',
-            value: 'â‚¬ ${validatedAmount.toStringAsFixed(2)}',
+            value: '€ ${validatedAmount.toStringAsFixed(2)}',
           ),
           const SizedBox(height: 8),
           GestureDetector(
             onTap: () {},
             child: const Text(
-              'Ver detalhes financeiros â†’',
+               'Ver detalhes financeiros →',
               style: TextStyle(
                 color: AppColors.accent,
                 fontSize: 13,

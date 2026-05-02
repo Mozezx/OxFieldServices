@@ -17,6 +17,7 @@ class CreateProjectScreen extends ConsumerStatefulWidget {
 
 class _CreateProjectScreenState extends ConsumerState<CreateProjectScreen> {
   int _step = 0;
+  bool _pendingSubmit = false;
   final _formKey1 = GlobalKey<FormState>();
 
   // Step 1
@@ -30,6 +31,15 @@ class _CreateProjectScreenState extends ConsumerState<CreateProjectScreen> {
   final List<Map<String, dynamic>> _phases = [];
   final _phaseNameCtrl = TextEditingController();
   final _phaseAmountCtrl = TextEditingController();
+
+  CreateProjectInput get _input => CreateProjectInput(
+        title: _titleCtrl.text.trim(),
+        description: _descCtrl.text.trim(),
+        location: _locationCtrl.text.trim(),
+        budget: double.tryParse(_budgetCtrl.text) ?? 0,
+        deadline: _deadline,
+        phases: _phases,
+      );
 
   @override
   void dispose() {
@@ -62,24 +72,24 @@ class _CreateProjectScreenState extends ConsumerState<CreateProjectScreen> {
     final notifier = ref.watch(projectsNotifierProvider);
 
     ref.listen(projectsNotifierProvider, (_, next) {
-        if (next is AsyncData && _step == 2) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Projeto criado com sucesso!')),
-          );
-          context.pop();
-        }
-        if (next is AsyncError) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(next.error.toString()),
-              backgroundColor: AppColors.error,
-            ),
-          );
-        }
-      });
+      if (next is AsyncData && _step == 2) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(_pendingSubmit ? 'Projeto enviado para validação!' : 'Rascunho salvo!')),
+        );
+        context.pop();
+      }
+      if (next is AsyncError) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(next.error.toString()),
+            backgroundColor: AppColors.error,
+          ),
+        );
+      }
+    });
 
       return Scaffold(
-        appBar: OxAppBar(title: 'Novo Projeto â€” Etapa ${_step + 1}/3'),
+        appBar: OxAppBar(title: 'Novo Projeto — Etapa ${_step + 1}/3'),
         body: SingleChildScrollView(
           padding: const EdgeInsets.all(24),
           child: [
@@ -111,17 +121,13 @@ class _CreateProjectScreenState extends ConsumerState<CreateProjectScreen> {
               phases: _phases,
               isLoading: notifier is AsyncLoading,
               onBack: () => setState(() => _step = 1),
-              onSubmit: () {
-                ref.read(projectsNotifierProvider.notifier).create(
-                      CreateProjectInput(
-                        title: _titleCtrl.text.trim(),
-                        description: _descCtrl.text.trim(),
-                        location: _locationCtrl.text.trim(),
-                        budget: double.tryParse(_budgetCtrl.text) ?? 0,
-                        deadline: _deadline,
-                        phases: _phases,
-                      ),
-                    );
+              onSaveDraft: () {
+                setState(() => _pendingSubmit = false);
+                ref.read(projectsNotifierProvider.notifier).create(_input);
+              },
+              onSendForValidation: () {
+                setState(() => _pendingSubmit = true);
+                ref.read(projectsNotifierProvider.notifier).createAndSubmit(_input);
               },
             ),
           ][_step],
@@ -159,7 +165,7 @@ class _StepBasicInfo extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Text(
-            'InformaÃ§Ãµes BÃ¡sicas',
+            'Informações Básicas',
             style: TextStyle(
               color: AppColors.textPrimary,
               fontSize: 20,
@@ -169,34 +175,34 @@ class _StepBasicInfo extends StatelessWidget {
           ),
           const SizedBox(height: 24),
           OxInput(
-            label: 'TÃ­tulo do projeto',
+            label: 'Título do projeto',
             controller: titleCtrl,
             prefixIcon: LucideIcons.fileText,
-            validator: (v) => v == null || v.isEmpty ? 'Campo obrigatÃ³rio' : null,
+            validator: (v) => v == null || v.isEmpty ? 'Campo obrigatório' : null,
           ),
           const SizedBox(height: 16),
           OxInput(
-            label: 'DescriÃ§Ã£o',
+            label: 'Descrição',
             controller: descCtrl,
             maxLines: 3,
-            validator: (v) => v == null || v.isEmpty ? 'Campo obrigatÃ³rio' : null,
+            validator: (v) => v == null || v.isEmpty ? 'Campo obrigatório' : null,
           ),
           const SizedBox(height: 16),
           OxInput(
-            label: 'LocalizaÃ§Ã£o',
+            label: 'Localização',
             controller: locationCtrl,
             prefixIcon: LucideIcons.mapPin,
-            validator: (v) => v == null || v.isEmpty ? 'Campo obrigatÃ³rio' : null,
+            validator: (v) => v == null || v.isEmpty ? 'Campo obrigatório' : null,
           ),
           const SizedBox(height: 16),
           OxInput(
-            label: 'OrÃ§amento total (â‚¬)',
+            label: 'Orçamento total (€)',
             controller: budgetCtrl,
             keyboardType: TextInputType.number,
             prefixIcon: LucideIcons.euro,
             validator: (v) {
-              if (v == null || v.isEmpty) return 'Campo obrigatÃ³rio';
-              if (double.tryParse(v) == null) return 'Valor invÃ¡lido';
+              if (v == null || v.isEmpty) return 'Campo obrigatório';
+              if (double.tryParse(v) == null) return 'Valor inválido';
               return null;
             },
           ),
@@ -342,7 +348,7 @@ class _StepPhases extends StatelessWidget {
                     ),
                   ),
                   Text(
-                    'â‚¬ ${entry.value['amount']}',
+                    '€ ${entry.value['amount']}',
                     style: const TextStyle(
                       color: AppColors.textSecondary,
                       fontFamily: 'Inter',
@@ -360,7 +366,7 @@ class _StepPhases extends StatelessWidget {
         OxInput(label: 'Nome da fase', controller: nameCtrl),
         const SizedBox(height: 12),
         OxInput(
-          label: 'Valor estimado (â‚¬)',
+          label: 'Valor estimado (€)',
           controller: amountCtrl,
           keyboardType: TextInputType.number,
         ),
@@ -397,7 +403,8 @@ class _StepReview extends StatelessWidget {
     required this.phases,
     required this.isLoading,
     required this.onBack,
-    required this.onSubmit,
+    required this.onSaveDraft,
+    required this.onSendForValidation,
   });
 
   final String title;
@@ -406,7 +413,8 @@ class _StepReview extends StatelessWidget {
   final List<Map<String, dynamic>> phases;
   final bool isLoading;
   final VoidCallback onBack;
-  final VoidCallback onSubmit;
+  final VoidCallback onSaveDraft;
+  final VoidCallback onSendForValidation;
 
   @override
   Widget build(BuildContext context) {
@@ -414,7 +422,7 @@ class _StepReview extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const Text(
-          'RevisÃ£o',
+          'Revisão',
           style: TextStyle(
             color: AppColors.textPrimary,
             fontSize: 20,
@@ -447,7 +455,7 @@ class _StepReview extends StatelessWidget {
               Text(location, style: const TextStyle(color: AppColors.textSecondary, fontFamily: 'Inter')),
               const SizedBox(height: 16),
               Text(
-                'â‚¬ ${budget.toStringAsFixed(2)} total',
+                '€ ${budget.toStringAsFixed(2)} total',
                 style: const TextStyle(
                   color: AppColors.accent,
                   fontSize: 16,
@@ -469,7 +477,7 @@ class _StepReview extends StatelessWidget {
                         ),
                         const Spacer(),
                         Text(
-                          'â‚¬ ${p['amount']}',
+                          '€ ${p['amount']}',
                           style: const TextStyle(
                             color: AppColors.textSecondary,
                             fontFamily: 'Inter',
@@ -482,21 +490,29 @@ class _StepReview extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 32),
+        OxButton(
+          label: 'Enviar para Validação',
+          isLoading: isLoading,
+          icon: LucideIcons.sendHorizontal,
+          onPressed: isLoading ? null : onSendForValidation,
+        ),
+        const SizedBox(height: 12),
         Row(
           children: [
             Expanded(
               child: OxButton(
                 label: 'Voltar',
                 variant: OxButtonVariant.secondary,
-                onPressed: onBack,
+                onPressed: isLoading ? null : onBack,
               ),
             ),
             const SizedBox(width: 12),
             Expanded(
               child: OxButton(
-                label: 'Criar Projeto',
+                label: 'Salvar Rascunho',
+                variant: OxButtonVariant.secondary,
                 isLoading: isLoading,
-                onPressed: onSubmit,
+                onPressed: isLoading ? null : onSaveDraft,
               ),
             ),
           ],

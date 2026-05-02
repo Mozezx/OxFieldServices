@@ -23,13 +23,58 @@ class EscrowModel {
       );
 }
 
+class EscrowIntent {
+  const EscrowIntent({
+    required this.clientSecret,
+    required this.paymentIntentId,
+    required this.amount,
+    required this.alreadyPaid,
+    this.customerId,
+    this.customerEphemeralKeySecret,
+    this.publishableKey,
+  });
+
+  final String? clientSecret;
+  final String? paymentIntentId;
+  final double amount;
+  final bool alreadyPaid;
+  final String? customerId;
+  final String? customerEphemeralKeySecret;
+  final String? publishableKey;
+
+  factory EscrowIntent.fromJson(Map<String, dynamic> json) => EscrowIntent(
+        clientSecret: json['clientSecret'] as String?,
+        paymentIntentId: json['paymentIntentId'] as String?,
+        amount: double.tryParse(json['amount'].toString()) ?? 0.0,
+        alreadyPaid: json['alreadyPaid'] as bool? ?? false,
+        customerId: json['customerId'] as String?,
+        customerEphemeralKeySecret:
+            json['customerEphemeralKeySecret'] as String?,
+        publishableKey: json['publishableKey'] as String?,
+      );
+}
+
 final escrowProvider =
     FutureProvider.autoDispose.family<EscrowModel?, String>((ref, contractId) async {
   final api = ref.watch(apiClientProvider);
   try {
-    final res = await api.dio.get(ApiEndpoints.paymentEscrow(contractId));
+    final res = await api.dio.get(ApiEndpoints.paymentEscrowByContract(contractId));
     return EscrowModel.fromJson(res.data as Map<String, dynamic>);
   } catch (_) {
     return null;
   }
 });
+
+class PaymentNotifier extends AsyncNotifier<void> {
+  @override
+  Future<void> build() async {}
+
+  Future<EscrowIntent> createOrFetchIntent(String contractId) async {
+    final api = ref.read(apiClientProvider);
+    final res = await api.dio.post(ApiEndpoints.paymentEscrow(contractId));
+    return EscrowIntent.fromJson(res.data as Map<String, dynamic>);
+  }
+}
+
+final paymentNotifierProvider =
+    AsyncNotifierProvider<PaymentNotifier, void>(PaymentNotifier.new);

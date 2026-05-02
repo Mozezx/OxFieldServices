@@ -52,16 +52,24 @@ export class ProjectsService {
 
   /**
    * Lista projetos com filtros opcionais.
+   *  - clientId: limita a projetos cujo dono é o cliente passado.
+   *  - workerId: limita a projetos cujo contrato pertence a esse worker.
+   *  - noContract: limita a projetos sem contrato (útil para listar
+   *    projetos disponíveis para matching).
    */
   async findAll(params: {
     clientId?: string;
+    workerId?: string;
     status?: ProjectStatus;
+    noContract?: boolean;
     skip?: number;
     take?: number;
   }) {
     const where: Prisma.ProjectWhereInput = {};
 
     if (params.clientId) where.clientId = params.clientId;
+    if (params.workerId) where.contract = { workerId: params.workerId };
+    if (params.noContract) where.contract = null;
     if (params.status) where.status = params.status;
 
     const [projects, total] = await Promise.all([
@@ -72,7 +80,16 @@ export class ProjectsService {
         orderBy: { createdAt: 'desc' },
         include: {
           phases: { orderBy: { order: 'asc' } },
-          contract: true,
+          contract: {
+            include: {
+              worker: {
+                include: {
+                  user: { select: { id: true, name: true, email: true } },
+                },
+              },
+              escrow: { select: { id: true, status: true } },
+            },
+          },
         },
       }),
       this.prisma.project.count({ where }),
@@ -93,8 +110,24 @@ export class ProjectsService {
     const project = await this.prisma.project.findUnique({
       where: { id },
       include: {
-        phases: { orderBy: { order: 'asc' } },
-        contract: true,
+        phases: {
+          orderBy: { order: 'asc' },
+          include: {
+            evidences: {
+              select: { id: true, type: true, url: true, uploadedAt: true },
+            },
+          },
+        },
+        contract: {
+          include: {
+            worker: {
+              include: {
+                user: { select: { id: true, name: true, email: true } },
+              },
+            },
+            escrow: { select: { id: true, status: true } },
+          },
+        },
         client: {
           select: { id: true, name: true, email: true },
         },
