@@ -2,7 +2,18 @@
   "permissions": {
     "allow": [
       "Bash(npx prisma *)",
-      "Bash(npm install *)"
+      "Bash(npm install *)",
+      "Bash(npm list *)",
+      "Bash(npx kill-port *)",
+      "Bash(npm run *)",
+      "Bash(curl -s http://localhost:3000/auth/me -H \"Authorization: Bearer eyJhbGciOiJFUzI1NiIsImtpZCI6IjY4YTc4ZDY2LWUyMWUtNDk5OS04NjRhLTMzMDc2ZWFlNzhlOSIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJodHRwczovL3Btc2NjZHZoaGhva29ybWx2eHd3LnN1cGFiYXNlLmNvL2F1dGgvdjEiLCJzdWIiOiIxZmFmYmExMS1jYjRmLTQ2YzAtYTc5My0zMzk0NzY5ZWJiN2YiLCJhdWQiOiJhdXRoZW50aWNhdGVkIiwiZXhwIjoxNzc3NTkxNTY3LCJpYXQiOjE3Nzc1ODc5NjcsImVtYWlsIjoibW9jYWxhemVyQGdtYWlsLmNvbSIsInBob25lIjoiIiwiYXBwX21ldGFkYXRhIjp7InByb3ZpZGVyIjoiZW1haWwiLCJwcm92aWRlcnMiOlsiZW1haWwiXX0sInVzZXJfbWV0YWRhdGEiOnsiZW1haWwiOiJtb2NhbGF6ZXJAZ21haWwuY29tIiwiZW1haWxfdmVyaWZpZWQiOnRydWUsInBob25lX3ZlcmlmaWVkIjpmYWxzZSwic3ViIjoiMWZhZmJhMTEtY2I0Zi00NmMwLWE3OTMtMzM5NDc2OWViYjdmIn0sInJvbGUiOiJhdXRoZW50aWNhdGVkIiwiYWFsIjoiYWFsMSIsImFtciI6W3sibWV0aG9kIjoicGFzc3dvcmQiLCJ0aW1lc3RhbXAiOjE3Nzc1ODc5Njd9XSwic2Vzc2lvbl9pZCI6ImNlZjY3YTFkLTU1YTktNDRjNC1hYzA0LTljZmRjYjc4ZDIxOSIsImlzX2Fub255bW91cyI6ZmFsc2V9.S2iImEmqSvm34Ez8qlSM-0jo9JSt49qZB98pKSBKJe9UqBbR185Lk6qOIWUs0Q8dBgXqg2XGzZY-mE2lBrvcUA\")",
+      "Bash(curl -s http://localhost:3000/auth/me -H 'Authorization: Bearer eyJhbGciOiJFUzI1NiIsImtpZCI6IjY4YTc4ZDY2LWUyMWUtNDk5OS04NjRhLTMzMDc2ZWFlNzhlOSIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJodHRwczovL3Btc2NjZHZoaGhva29ybWx2eHd3LnN1cGFiYXNlLmNvL2F1dGgvdjEiLCJzdWIiOiIxZmFmYmExMS1jYjRmLTQ2YzAtYTc5My0zMzk0NzY5ZWJiN2YiLCJhdWQiOiJhdXRoZW50aWNhdGVkIiwiZXhwIjoxNzc3NTkxNTY3LCJpYXQiOjE3Nzc1ODc5NjcsImVtYWlsIjoibW9jYWxhemVyQGdtYWlsLmNvbSIsInBob25lIjoiIiwiYXBwX21ldGFkYXRhIjp7InByb3ZpZGVyIjoiZW1haWwiLCJwcm92aWRlcnMiOlsiZW1haWwiXX0sInVzZXJfbWV0YWRhdGEiOnsiZW1haWwiOiJtb2NhbGF6ZXJAZ21haWwuY29tIiwiZW1haWxfdmVyaWZpZWQiOnRydWUsInBob25lX3ZlcmlmaWVkIjpmYWxzZSwic3ViIjoiMWZhZmJhMTEtY2I0Zi00NmMwLWE3OTMtMzM5NDc2OWViYjdmIn0sInJvbGUiOiJhdXRoZW50aWNhdGVkIiwiYWFsIjoiYWFsMSIsImFtciI6W3sibWV0aG9kIjoicGFzc3dvcmQiLCJ0aW1lc3RhbXAiOjE3Nzc1ODc5Njd9XSwic2Vzc2lvbl9pZCI6ImNlZjY3YTFkLTU1YTktNDRjNC1hYzA0LTljZmRjYjc4ZDIxOSIsImlzX2Fub255bW91cyI6ZmFsc2V9.S2iImEmqSvm34Ez8qlSM-0jo9JSt49qZB98pKSBKJe9UqBbR185Lk6qOIWUs0Q8dBgXqg2XGzZY-mE2lBrvcUA')",
+      "Bash(curl -s -X POST 'https://pmsccdvhhhokormlvxww.supabase.co/auth/v1/token?grant_type=password' -H 'apikey: sb_publishable_XJNsXk0drxrzDqcWPCU3bw_ifoozFyx' -H 'Content-Type: application/json' -d '{\"email\":\"client.testox@gmail.com\",\"password\":\"Teste@123\"}')",
+      "Bash(python -m json.tool)",
+      "PowerShell(flutter --version 2>&1)",
+      "mcp__supabase__execute_sql",
+      "Bash(netstat -ano)",
+      "Bash(findstr :3000)"
     ]
   }
 }

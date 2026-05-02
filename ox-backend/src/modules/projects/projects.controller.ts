@@ -19,6 +19,7 @@ import { ProjectsService } from './projects.service';
 import { CreateProjectDto } from './dto/create-project.dto';
 import { UpdateProjectDto } from './dto/update-project.dto';
 import { UpdateStatusDto } from './dto/update-status.dto';
+import { RateProjectDto } from './dto/rate-project.dto';
 import { ProjectStatus } from '@prisma/client';
 
 @ApiTags('Projects')
@@ -124,6 +125,17 @@ export class ProjectsController {
     @Body() dto: UpdateStatusDto,
   ) {
     return this.projectsService.updateStatus(id, req.user.id, dto);
+  }
+
+  @Post(':id/rating')
+  @Roles('client', 'admin')
+  @ApiOperation({ summary: 'Avaliar o trabalhador ao final do projeto' })
+  rateWorker(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Req() req: any,
+    @Body() dto: RateProjectDto,
+  ) {
+    return this.projectsService.rateWorker(id, req.user.id, dto);
   }
 
   @Delete(':id')

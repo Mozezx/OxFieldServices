@@ -2,6 +2,7 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools'
 import { useState, ReactNode } from 'react'
+import { FcmBootstrap } from '@/components/providers/FcmBootstrap'
 
 export function QueryProvider({ children }: { children: ReactNode }) {
   const [client] = useState(() => new QueryClient({
@@ -10,6 +11,7 @@ export function QueryProvider({ children }: { children: ReactNode }) {
 
   return (
     <QueryClientProvider client={client}>
+      <FcmBootstrap />
       {children}
       <ReactQueryDevtools initialIsOpen={false} />
     </QueryClientProvider>

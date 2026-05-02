@@ -1,13 +1,29 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import type { NotificationType } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import * as admin from 'firebase-admin';
 
-type NotificationPayload = {
+export type CreateNotificationInput = {
+  userId: string;
+  type: NotificationType;
+  title: string;
+  body: string;
+  entityType?: string | null;
+  entityId?: string | null;
+  data?: Record<string, unknown> | null;
+};
+
+type FcmPayload = {
   title: string;
   body: string;
   data?: Record<string, string>;
 };
+
+const INVALID_TOKEN_CODES = new Set([
+  'messaging/invalid-registration-token',
+  'messaging/registration-token-not-registered',
+]);
 
 @Injectable()
 export class NotificationsService {
@@ -25,7 +41,9 @@ export class NotificationsService {
     const clientEmail = this.configService.get<string>('FIREBASE_CLIENT_EMAIL');
 
     if (!projectId || !privateKey || !clientEmail) {
-      this.logger.warn('Firebase não configurado completamente. Push notifications desabilitadas.');
+      this.logger.warn(
+        'Firebase não configurado completamente. Push notifications desabilitadas.',
+      );
       return;
     }
 
@@ -40,179 +58,193 @@ export class NotificationsService {
         });
   }
 
-  async notifyPhaseValidated(phaseId: string) {
-    try {
-      const phase = await this.prisma.projectPhase.findUnique({
-        where: { id: phaseId },
-        include: {
-          project: {
-            select: {
-              id: true,
-              title: true,
-              client: { select: { id: true, fcmToken: true } },
-              contract: {
-                select: {
-                  worker: {
-                    select: {
-                      user: { select: { id: true, fcmToken: true } },
-                    },
-                  },
-                },
-              },
-            },
-          },
-        },
-      });
+  /**
+   * Persiste no banco e envia FCM para todos os DeviceTokens (+ legacy fcmToken).
+   */
+  async create(input: CreateNotificationInput) {
+    const row = await this.prisma.notification.create({
+      data: {
+        userId: input.userId,
+        type: input.type,
+        title: input.title,
+        body: input.body,
+        entityType: input.entityType ?? undefined,
+        entityId: input.entityId ?? undefined,
+        data: input.data === undefined ? undefined : (input.data as object),
+      },
+    });
 
-      if (!phase) return;
+    await this.pushToUser(input.userId, {
+      title: input.title,
+      body: input.body,
+      data: this.buildFcmData(input.type, input.entityType, input.entityId, input.data),
+    });
 
-      await Promise.all([
-        this.sendToUserToken(phase.project.client.id, phase.project.client.fcmToken, {
-          title: 'Fase validada',
-          body: `A fase ${phase.name} do projeto ${phase.project.title} foi validada.`,
-          data: { event: 'phase.validated', phaseId, projectId: phase.project.id },
-        }),
-        this.sendToUserToken(
-          phase.project.contract?.worker.user.id,
-          phase.project.contract?.worker.user.fcmToken,
-          {
-            title: 'Fase aprovada',
-            body: `Sua fase ${phase.name} foi aprovada no projeto ${phase.project.title}.`,
-            data: { event: 'phase.validated', phaseId, projectId: phase.project.id },
-          },
-        ),
-      ]);
-    } catch (error) {
-      this.logger.warn(`Falha silenciosa ao enviar push de phase.validated: ${String(error)}`);
-    }
+    return row;
   }
 
-  async notifyPhaseRejected(phaseId: string) {
-    try {
-      const phase = await this.prisma.projectPhase.findUnique({
-        where: { id: phaseId },
-        include: {
-          project: {
-            select: {
-              id: true,
-              title: true,
-              client: { select: { id: true, fcmToken: true } },
-              contract: {
-                select: {
-                  worker: {
-                    select: {
-                      user: { select: { id: true, fcmToken: true } },
-                    },
-                  },
-                },
-              },
-            },
-          },
-        },
-      });
-
-      if (!phase) return;
-
-      await Promise.all([
-        this.sendToUserToken(
-          phase.project.contract?.worker.user.id,
-          phase.project.contract?.worker.user.fcmToken,
-          {
-            title: 'Fase rejeitada',
-            body: `A fase ${phase.name} do projeto ${phase.project.title} foi rejeitada e precisa de ajustes.`,
-            data: { event: 'phase.rejected', phaseId, projectId: phase.project.id },
-          },
-        ),
-        this.sendToUserToken(phase.project.client.id, phase.project.client.fcmToken, {
-          title: 'Rejeição registrada',
-          body: `A fase ${phase.name} foi marcada como rejeitada no projeto ${phase.project.title}.`,
-          data: { event: 'phase.rejected', phaseId, projectId: phase.project.id },
-        }),
-      ]);
-    } catch (error) {
-      this.logger.warn(`Falha silenciosa ao enviar push de phase.rejected: ${String(error)}`);
-    }
-  }
-
-  async notifyPaymentReleased(escrowId: string) {
-    try {
-      const escrow = await this.prisma.escrowTxn.findUnique({
-        where: { id: escrowId },
-        include: {
-          contract: {
-            include: {
-              project: {
-                select: {
-                  id: true,
-                  title: true,
-                  client: { select: { id: true, fcmToken: true } },
-                },
-              },
-              worker: {
-                select: {
-                  user: { select: { id: true, fcmToken: true } },
-                },
-              },
-            },
-          },
-        },
-      });
-
-      if (!escrow) return;
-
-      await Promise.all([
-        this.sendToUserToken(
-          escrow.contract.worker.user.id,
-          escrow.contract.worker.user.fcmToken,
-          {
-            title: 'Pagamento liberado',
-            body: `O pagamento do projeto ${escrow.contract.project.title} foi liberado.`,
-            data: {
-              event: 'payment.released',
-              escrowId,
-              projectId: escrow.contract.project.id,
-            },
-          },
-        ),
-        this.sendToUserToken(
-          escrow.contract.project.client.id,
-          escrow.contract.project.client.fcmToken,
-          {
-            title: 'Pagamento concluído',
-            body: `O pagamento do projeto ${escrow.contract.project.title} foi transferido com sucesso.`,
-            data: {
-              event: 'payment.released',
-              escrowId,
-              projectId: escrow.contract.project.id,
-            },
-          },
-        ),
-      ]);
-    } catch (error) {
-      this.logger.warn(`Falha silenciosa ao enviar push de payment.released: ${String(error)}`);
-    }
-  }
-
-  private async sendToUserToken(
-    userId: string | undefined,
-    token: string | null | undefined,
-    payload: NotificationPayload,
+  /** Envia a vários usuários (deduplica IDs). */
+  async createForUsers(
+    userIds: string[],
+    payload: Omit<CreateNotificationInput, 'userId'>,
   ) {
-    if (!userId || !token || !this.firebaseApp) {
-      return;
+    const unique = [...new Set(userIds)];
+    await Promise.all(
+      unique.map((userId) => this.create({ ...payload, userId })),
+    );
+  }
+
+  async listForUser(params: {
+    userId: string;
+    cursor?: string | null;
+    limit: number;
+  }) {
+    const take = Math.min(Math.max(params.limit, 1), 50);
+    const cursorDate = params.cursor ? new Date(params.cursor) : undefined;
+
+    const items = await this.prisma.notification.findMany({
+      where: {
+        userId: params.userId,
+        ...(cursorDate && !Number.isNaN(cursorDate.getTime())
+          ? { createdAt: { lt: cursorDate } }
+          : {}),
+      },
+      orderBy: { createdAt: 'desc' },
+      take: take + 1,
+    });
+
+    const hasMore = items.length > take;
+    const slice = hasMore ? items.slice(0, take) : items;
+    const nextCursor =
+      hasMore && slice.length > 0
+        ? slice[slice.length - 1].createdAt.toISOString()
+        : null;
+
+    return {
+      items: slice.map((n) => ({
+        id: n.id,
+        type: n.type,
+        title: n.title,
+        body: n.body,
+        entityType: n.entityType,
+        entityId: n.entityId,
+        data: n.data,
+        readAt: n.readAt?.toISOString() ?? null,
+        createdAt: n.createdAt.toISOString(),
+      })),
+      nextCursor,
+    };
+  }
+
+  async unreadCount(userId: string) {
+    const count = await this.prisma.notification.count({
+      where: { userId, readAt: null },
+    });
+    return { count };
+  }
+
+  async markRead(userId: string, notificationId: string) {
+    const n = await this.prisma.notification.findFirst({
+      where: { id: notificationId, userId },
+    });
+    if (!n) return null;
+    return this.prisma.notification.update({
+      where: { id: notificationId },
+      data: { readAt: new Date() },
+    });
+  }
+
+  async markAllRead(userId: string) {
+    await this.prisma.notification.updateMany({
+      where: { userId, readAt: null },
+      data: { readAt: new Date() },
+    });
+    return { ok: true };
+  }
+
+  async deleteOne(userId: string, notificationId: string) {
+    const result = await this.prisma.notification.deleteMany({
+      where: { id: notificationId, userId },
+    });
+    return { deleted: result.count > 0 };
+  }
+
+  async getAdminUserIds(): Promise<string[]> {
+    const rows = await this.prisma.user.findMany({
+      where: { role: 'admin' },
+      select: { id: true },
+    });
+    return rows.map((r) => r.id);
+  }
+
+  private buildFcmData(
+    type: NotificationType,
+    entityType?: string | null,
+    entityId?: string | null,
+    extra?: Record<string, unknown> | null,
+  ): Record<string, string> {
+    const data: Record<string, string> = {
+      type,
+      entityType: entityType ?? '',
+      entityId: entityId ?? '',
+    };
+    if (extra && typeof extra === 'object') {
+      data.payload = JSON.stringify(extra);
+    }
+    return data;
+  }
+
+  private async pushToUser(userId: string, payload: FcmPayload) {
+    if (!this.firebaseApp) return;
+
+    const [devices, user] = await Promise.all([
+      this.prisma.deviceToken.findMany({
+        where: { userId },
+        select: { token: true },
+      }),
+      this.prisma.user.findUnique({
+        where: { id: userId },
+        select: { fcmToken: true },
+      }),
+    ]);
+
+    const tokens = devices.map((d) => d.token);
+    if (user?.fcmToken && !tokens.includes(user.fcmToken)) {
+      tokens.push(user.fcmToken);
     }
 
+    if (tokens.length === 0) return;
+
+    const dataStrings: Record<string, string> = {
+      ...(payload.data ?? {}),
+    };
+
     try {
-      await admin.messaging(this.firebaseApp).send({
-        token,
+      const resp = await admin.messaging(this.firebaseApp).sendEachForMulticast({
+        tokens,
         notification: {
           title: payload.title,
           body: payload.body,
         },
-        data: payload.data,
+        data: dataStrings,
       });
+
+      const toDelete: string[] = [];
+      resp.responses.forEach((r, i) => {
+        if (r.success) return;
+        const code = r.error?.code;
+        if (code && INVALID_TOKEN_CODES.has(code)) {
+          toDelete.push(tokens[i]);
+        }
+      });
+
+      if (toDelete.length > 0) {
+        await this.prisma.deviceToken.deleteMany({
+          where: { token: { in: toDelete } },
+        });
+      }
     } catch (error) {
-      this.logger.warn(`Falha silenciosa ao enviar push para user ${userId}: ${String(error)}`);
+      this.logger.warn(`FCM multicast falhou para user ${userId}: ${String(error)}`);
     }
   }
 }

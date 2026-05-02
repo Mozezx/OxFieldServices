@@ -40,6 +40,9 @@ dependencies:
   dotted_border: ^2.1.0
   percent_indicator: ^4.2.3
 
+  # Links externos (OAuth redirect)
+  url_launcher: ^6.2.6
+
   # Pagamentos
   flutter_stripe: ^11.1.0
 

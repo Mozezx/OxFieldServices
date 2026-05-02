@@ -7,6 +7,8 @@ import '../../features/splash/splash_screen.dart';
 import '../../features/onboarding/onboarding_screen.dart';
 import '../../features/auth/login_screen.dart';
 import '../../features/auth/register_screen.dart';
+import '../../features/auth/forgot_password_screen.dart';
+import '../../features/auth/reset_password_screen.dart';
 import '../../features/projects/projects_list_screen.dart';
 import '../../features/projects/project_detail_screen.dart';
 import '../../features/projects/create_project_screen.dart';
@@ -18,7 +20,7 @@ import '../../features/notifications/notifications_screen.dart';
 import '../../features/profile/profile_screen.dart';
 import 'main_shell.dart';
 
-final _publicRoutes = {'/splash', '/onboarding', '/login', '/register'};
+final _publicRoutes = {'/splash', '/onboarding', '/login', '/register', '/forgot-password', '/reset-password'};
 
 final routerProvider = Provider<GoRouter>((ref) {
   return GoRouter(
@@ -61,6 +63,14 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/register',
         builder: (context, state) => const RegisterScreen(),
+      ),
+      GoRoute(
+        path: '/forgot-password',
+        builder: (context, state) => const ForgotPasswordScreen(),
+      ),
+      GoRoute(
+        path: '/reset-password',
+        builder: (context, state) => const ResetPasswordScreen(),
       ),
       ShellRoute(
         builder: (context, state, child) => MainShell(child: child),

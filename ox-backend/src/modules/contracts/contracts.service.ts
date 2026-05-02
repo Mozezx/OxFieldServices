@@ -1,7 +1,15 @@
 import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
+import { ProjectStatus } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { CreateContractDto } from './dto/create-contract.dto';
+
+const STATUS_ALLOW_ESCROW_REASSIGN: ProjectStatus[] = [
+  ProjectStatus.matched,
+  ProjectStatus.contract_signed,
+  ProjectStatus.active_escrow,
+  ProjectStatus.in_execution,
+];
 
 @Injectable()
 export class ContractsService {
@@ -14,12 +22,12 @@ export class ContractsService {
    * Cria ou substitui o contrato de um projeto.
    *
    * Regras:
-   *  - Permitido em status 'matched' (primeira atribuição) ou 'contract_signed'
-   *    (troca de worker antes da assinatura/escrow).
-   *  - Se já existe contrato, só pode ser trocado enquanto NÃO foi assinado pelo
-   *    worker (`signedAt` nulo) e NÃO existe escrow associado.
-   *  - Se for primeira atribuição (status 'matched'), transiciona o projeto para
-   *    'contract_signed'. Em troca, o status fica como está.
+   *  - Primeira atribuição: status `matched` ou `contract_signed`.
+   *  - Troca sem escrow: substitui o contrato (delete + create) enquanto o worker
+   *    ainda não assinou.
+   *  - Troca **com escrow**: atualiza `workerId` no mesmo contrato; o EscrowTxn e
+   *    o pagamento Stripe permanecem; `signedAt` é limpo para o novo worker aceitar.
+   *  - Nenhuma troca se já existir fase em andamento ou concluída (`!== pending`).
    */
   async create(dto: CreateContractDto) {
     const project = await this.prisma.project.findUnique({
@@ -31,29 +39,16 @@ export class ContractsService {
     });
     if (!project) throw new NotFoundException('Projeto não encontrado');
 
-    if (project.status !== 'matched' && project.status !== 'contract_signed') {
+    const workStarted = project.phases.some((p) => p.status !== 'pending');
+    if (workStarted) {
       throw new BadRequestException(
-        `Atribuição de worker só é permitida em status 'matched' ou 'contract_signed' (troca). Status atual: '${project.status}'`,
+        'Não é possível trocar worker: já existe fase em andamento ou concluída.',
       );
     }
 
     const existing = project.contract;
-    if (existing) {
-      if (existing.signedAt) {
-        throw new BadRequestException(
-          'Contrato já foi assinado pelo worker. Não é possível trocar de worker.',
-        );
-      }
-      if (existing.escrow) {
-        throw new BadRequestException(
-          'Já existe escrow ativo para este contrato. Não é possível trocar de worker.',
-        );
-      }
-      if (existing.workerId === dto.workerId) {
-        throw new BadRequestException(
-          'Esse worker já está atribuído a este projeto.',
-        );
-      }
+    if (existing?.workerId === dto.workerId) {
+      throw new BadRequestException('Esse worker já está atribuído a este projeto.');
     }
 
     const worker = await this.prisma.worker.findUnique({
@@ -67,13 +62,66 @@ export class ContractsService {
       );
     }
 
+    // ── Mesmo contrato + escrow: fundos permanecem retidos; só muda o worker ──
+    if (existing?.escrow) {
+      if (!STATUS_ALLOW_ESCROW_REASSIGN.includes(project.status)) {
+        throw new BadRequestException(
+          `Troca com escrow não é permitida no status '${project.status}'.`,
+        );
+      }
+
+      const updated = await this.prisma.$transaction(async (tx) => {
+        const res = await tx.contract.update({
+          where: { id: existing.id },
+          data: {
+            workerId: dto.workerId,
+            signedAt: null,
+          },
+          include: {
+            project: true,
+            worker: { include: { user: true } },
+            escrow: true,
+          },
+        });
+
+        if (project.status === ProjectStatus.in_execution) {
+          await tx.project.update({
+            where: { id: dto.projectId },
+            data: { status: ProjectStatus.active_escrow },
+          });
+        }
+
+        return res;
+      });
+
+      this.eventEmitter.emit('worker.assigned', {
+        contractId: updated.id,
+        projectId: dto.projectId,
+        workerId: dto.workerId,
+      });
+
+      return updated;
+    }
+
+    if (existing?.signedAt) {
+      throw new BadRequestException(
+        'Contrato já foi assinado pelo worker. Não é possível trocar de worker.',
+      );
+    }
+
+    if (project.status !== 'matched' && project.status !== 'contract_signed') {
+      throw new BadRequestException(
+        `Atribuição de worker só é permitida em status 'matched' ou 'contract_signed' (troca). Status atual: '${project.status}'`,
+      );
+    }
+
     const totalAmount = project.phases.reduce(
       (sum, p) => sum + Number(p.amount),
       0,
     );
 
-    // Transação: substitui o contrato antigo (se existir) e cria o novo.
-    // Em primeira atribuição (status 'matched'), também avança o status.
+    const previousStatus = project.status;
+
     const contract = await this.prisma.$transaction(async (tx) => {
       if (existing) {
         await tx.contract.delete({ where: { id: existing.id } });
@@ -97,6 +145,20 @@ export class ContractsService {
 
       return created;
     });
+
+    this.eventEmitter.emit('contract.created', {
+      contractId: contract.id,
+      projectId: contract.projectId,
+      workerId: contract.workerId,
+    });
+
+    if (previousStatus === ProjectStatus.matched) {
+      this.eventEmitter.emit('project.status_changed', {
+        projectId: dto.projectId,
+        from: previousStatus,
+        to: ProjectStatus.contract_signed,
+      });
+    }
 
     return contract;
   }

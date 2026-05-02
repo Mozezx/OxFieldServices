@@ -43,9 +43,9 @@ class _SplashScreenState extends State<SplashScreen>
     if (session != null) {
       context.go('/home');
     } else {
-      await TokenStorage.setOnboarded();
+      final onboarded = await TokenStorage.isOnboarded();
       if (!mounted) return;
-      context.go('/login');
+      context.go(onboarded ? '/login' : '/onboarding');
     }
   }
 

@@ -4,10 +4,12 @@ import {
   NotFoundException,
   ForbiddenException,
 } from '@nestjs/common';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import { PrismaService } from '../../prisma/prisma.service';
 import { CreateProjectDto } from './dto/create-project.dto';
 import { UpdateProjectDto } from './dto/update-project.dto';
 import { UpdateStatusDto } from './dto/update-status.dto';
+import { RateProjectDto } from './dto/rate-project.dto';
 import {
   getNextStatus,
   getAvailableEvents,
@@ -16,7 +18,10 @@ import { ProjectStatus, Prisma } from '@prisma/client';
 
 @Injectable()
 export class ProjectsService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private readonly eventEmitter: EventEmitter2,
+  ) {}
 
   /**
    * Cria um novo projeto no status 'draft', com fases opcionais.
@@ -45,6 +50,11 @@ export class ProjectsService {
       include: {
         phases: { orderBy: { order: 'asc' } },
       },
+    });
+
+    this.eventEmitter.emit('project.created', {
+      projectId: project.id,
+      clientId,
     });
 
     return this.formatResponse(project);
@@ -219,7 +229,61 @@ export class ProjectsService {
       },
     });
 
+    this.eventEmitter.emit('project.status_changed', {
+      projectId: id,
+      from: currentStatus,
+      to: nextStatus as ProjectStatus,
+    });
+
     return this.formatResponse(updated);
+  }
+
+  /**
+   * Cliente avalia o trabalhador após o projeto (uma avaliação por projeto/cliente).
+   */
+  async rateWorker(projectId: string, clientUserId: string, dto: RateProjectDto) {
+    const project = await this.prisma.project.findUnique({
+      where: { id: projectId },
+      include: { contract: true },
+    });
+
+    if (!project) {
+      throw new NotFoundException('Projeto não encontrado');
+    }
+
+    if (project.clientId !== clientUserId) {
+      throw new ForbiddenException('Apenas o cliente do projeto pode avaliar');
+    }
+
+    if (!project.contract) {
+      throw new BadRequestException('Projeto sem contrato/worker para avaliar');
+    }
+
+    const existing = await this.prisma.workerRating.findFirst({
+      where: { projectId, userId: clientUserId },
+    });
+
+    if (existing) {
+      throw new BadRequestException('Você já avaliou este projeto');
+    }
+
+    const rating = await this.prisma.workerRating.create({
+      data: {
+        workerId: project.contract.workerId,
+        projectId,
+        userId: clientUserId,
+        score: dto.score,
+        feedback: dto.feedback,
+      },
+    });
+
+    this.eventEmitter.emit('worker.rated', {
+      workerId: project.contract.workerId,
+      projectId,
+      score: dto.score,
+    });
+
+    return rating;
   }
 
   /**

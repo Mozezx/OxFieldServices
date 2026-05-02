@@ -188,6 +188,13 @@ export class PhasesService {
       data: { status: newStatus },
     });
 
+    if (currentStatus === 'pending' && newStatus === 'in_progress') {
+      this.eventEmitter.emit('phase.started', { phaseId: id });
+    }
+    if (currentStatus === 'evidence_uploaded' && newStatus === 'under_review') {
+      this.eventEmitter.emit('phase.under_review', { phaseId: id });
+    }
+
     return {
       ...updated,
       amount: Number(updated.amount),

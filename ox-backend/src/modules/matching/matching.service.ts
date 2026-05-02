@@ -3,6 +3,7 @@ import {
   BadRequestException,
   NotFoundException,
 } from '@nestjs/common';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import { PrismaService } from '../../prisma/prisma.service';
 import { ContractsService } from '../contracts/contracts.service';
 
@@ -14,6 +15,7 @@ export class MatchingService {
   constructor(
     private prisma: PrismaService,
     private contractsService: ContractsService,
+    private readonly eventEmitter: EventEmitter2,
   ) {}
 
   async findCandidates(projectId: string) {
@@ -27,11 +29,17 @@ export class MatchingService {
 
     if (!project) throw new NotFoundException('Projeto não encontrado');
 
-    // Se já existe contrato e ele está "fechado" (assinado ou com escrow),
-    // não há mais como atribuir/trocar worker.
-    if (project.contract && (project.contract.signedAt || project.contract.escrow)) {
+    const workStarted = project.phases.some((p) => p.status !== 'pending');
+    if (workStarted) {
       throw new BadRequestException(
-        'Projeto já possui contrato assinado ou com escrow ativo — não é possível trocar de worker',
+        'Não é possível trocar worker: já existe fase em andamento ou concluída.',
+      );
+    }
+
+    // Assinatura sem escrow ainda: troca não é suportada (mesma regra que ContractsService).
+    if (project.contract?.signedAt && !project.contract.escrow) {
+      throw new BadRequestException(
+        'Contrato já assinado pelo worker e sem escrow — não é possível buscar novos candidatos.',
       );
     }
 
@@ -79,6 +87,7 @@ export class MatchingService {
   }
 
   async assignWorker(projectId: string, workerId: string) {
+    this.eventEmitter.emit('worker.invited', { projectId, workerId });
     return this.contractsService.create({ projectId, workerId });
   }
 }

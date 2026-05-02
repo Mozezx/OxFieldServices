@@ -5,6 +5,7 @@ import {
   InternalServerErrorException,
   ForbiddenException,
 } from '@nestjs/common';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import { createClient } from '@supabase/supabase-js';
 import { PrismaService } from '../../prisma/prisma.service';
 
@@ -25,7 +26,10 @@ export class EvidenceService {
     process.env.SUPABASE_SERVICE_KEY!,
   );
 
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private readonly eventEmitter: EventEmitter2,
+  ) {}
 
   async upload(
     phaseId: string,
@@ -91,6 +95,8 @@ export class EvidenceService {
         data: { status: 'evidence_uploaded' },
       });
     }
+
+    this.eventEmitter.emit('phase.evidence_uploaded', { phaseId });
 
     return evidence;
   }

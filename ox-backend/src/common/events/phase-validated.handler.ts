@@ -1,5 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { OnEvent } from '@nestjs/event-emitter';
+import { EventEmitter2, OnEvent } from '@nestjs/event-emitter';
 import { PrismaService } from '../../prisma/prisma.service';
 
 /**
@@ -10,7 +10,10 @@ import { PrismaService } from '../../prisma/prisma.service';
 export class PhaseValidatedHandler {
   private readonly logger = new Logger(PhaseValidatedHandler.name);
 
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private readonly eventEmitter: EventEmitter2,
+  ) {}
 
   @OnEvent('phase.validated')
   async handle(payload: { phaseId: string }) {
@@ -48,10 +51,18 @@ export class PhaseValidatedHandler {
       );
     }
 
+    const fromStatus = phase.project.status;
+
     // Avança projeto para closing
     await this.prisma.project.update({
       where: { id: phase.projectId },
       data: { status: 'closing' },
+    });
+
+    this.eventEmitter.emit('project.status_changed', {
+      projectId: phase.projectId,
+      from: fromStatus,
+      to: 'closing',
     });
 
     this.logger.log(`Projeto ${phase.projectId} avançado para closing`);

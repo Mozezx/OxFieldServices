@@ -40,6 +40,38 @@ enum EscrowStatus {
   refunded
 }
 
+enum NotificationType {
+  user_welcome
+  project_created
+  project_in_validation
+  project_matched
+  project_activated
+  project_closing
+  project_closed
+  project_rejected
+  phase_started
+  phase_evidence_uploaded
+  phase_under_review
+  phase_validated
+  phase_rejected
+  contract_created
+  contract_signed
+  escrow_held
+  escrow_released
+  escrow_refunded
+  payment_transferred
+  payment_failed
+  worker_invited
+  worker_assigned
+  worker_rated
+}
+
+enum DevicePlatform {
+  ios
+  android
+  web
+}
+
 model User {
   id               String   @id @default(uuid())
   authId           String   @unique // references auth.users.id (Supabase Auth)
@@ -48,13 +80,15 @@ model User {
   email            String   @unique
   phone            String?
   fcmToken         String?
-  stripeCustomerId String?  // referência ao Customer Stripe (cards salvos)
+  stripeCustomerId String? // referência ao Customer Stripe (cards salvos)
   createdAt        DateTime @default(now())
 
-  projects  Project[]
-  worker    Worker?
-  evidences PhaseEvidence[]
-  ratings   WorkerRating[]
+  projects      Project[]
+  worker        Worker?
+  evidences     PhaseEvidence[]
+  ratings       WorkerRating[]
+  notifications Notification[]
+  deviceTokens  DeviceToken[]
 }
 
 model Worker {
@@ -162,5 +196,34 @@ model WorkerRating {
 model Skill {
   id    String @id @default(uuid())
   name  String @unique // chave lowercase: "eletrica"
-  label String          // nome exibido: "Elétrica"
+  label String // nome exibido: "Elétrica"
+}
+
+model Notification {
+  id         String           @id @default(uuid())
+  userId     String
+  user       User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type       NotificationType
+  title      String
+  body       String
+  entityType String?
+  entityId   String?
+  data       Json?
+  readAt     DateTime?
+  createdAt  DateTime         @default(now())
+
+  @@index([userId, readAt])
+  @@index([userId, createdAt])
+}
+
+model DeviceToken {
+  id        String         @id @default(uuid())
+  userId    String
+  user      User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  token     String         @unique
+  platform  DevicePlatform
+  lastSeen  DateTime       @default(now())
+  createdAt DateTime       @default(now())
+
+  @@index([userId])
 }

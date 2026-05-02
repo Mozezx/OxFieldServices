@@ -92,10 +92,12 @@ class JobModel {
   bool get isSigned => contractSignedAt != null;
 
   /// Pode aceitar (assinar) o contrato?
+  /// Inclui `active_escrow`: o cliente pode pagar antes do worker assinar; o
+  /// backend então fica em escrow ativo até a assinatura disparar `in_execution`.
   bool get canAccept =>
       contractId != null &&
       !isSigned &&
-      ['contract_signed', 'matched'].contains(status);
+      ['contract_signed', 'matched', 'active_escrow'].contains(status);
 
   /// Projeto em execução ativa — worker pode executar fases.
   bool get isExecuting => isSigned && status == 'in_execution';

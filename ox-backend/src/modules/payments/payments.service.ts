@@ -197,6 +197,8 @@ export class PaymentsService {
       },
     });
 
+    this.eventEmitter.emit('escrow.held', { contractId });
+
     if (!chargeId) {
       this.logger.warn(
         `Escrow ${contractId}: sem charge de origem (ch_) — transfers Connect ao Brasil exigem source_transaction`,
@@ -204,6 +206,11 @@ export class PaymentsService {
     }
 
     await this.advanceProjectAfterEscrow(contractId);
+  }
+
+  /** Webhook: falha no PaymentIntent do cliente */
+  handlePaymentIntentFailed(contractId?: string, reason?: string) {
+    this.eventEmitter.emit('payment.failed', { contractId, reason });
   }
 
   /**
@@ -230,11 +237,17 @@ export class PaymentsService {
       if (escrow) {
         const next = getNextStatus(currentStatus, 'PAY');
         if (next) {
+          const from = currentStatus as ProjectStatus;
           await this.prisma.project.update({
             where: { id: contract.projectId },
             data: { status: next as ProjectStatus },
           });
           currentStatus = next;
+          this.eventEmitter.emit('project.status_changed', {
+            projectId: contract.projectId,
+            from,
+            to: next as ProjectStatus,
+          });
           this.logger.log(
             `Projeto ${contract.projectId}: contract_signed -> ${next}`,
           );
@@ -246,11 +259,17 @@ export class PaymentsService {
     if (currentStatus === 'active_escrow' && contract.signedAt) {
       const next = getNextStatus(currentStatus, 'START');
       if (next) {
+        const from = currentStatus as ProjectStatus;
         await this.prisma.project.update({
           where: { id: contract.projectId },
           data: { status: next as ProjectStatus },
         });
         currentStatus = next;
+        this.eventEmitter.emit('project.status_changed', {
+          projectId: contract.projectId,
+          from,
+          to: next as ProjectStatus,
+        });
         this.logger.log(`Projeto ${contract.projectId}: active_escrow -> ${next}`);
       }
     }
@@ -265,6 +284,7 @@ export class PaymentsService {
           where: { id: firstPending.id },
           data: { status: 'in_progress' },
         });
+        this.eventEmitter.emit('phase.started', { phaseId: firstPending.id });
         this.logger.log(
           `Fase ${firstPending.id} (order ${firstPending.order}) iniciada como in_progress`,
         );
@@ -292,14 +312,15 @@ export class PaymentsService {
       where: { id: payload.phaseId },
       include: {
         project: {
-          include: {
+          select: {
+            title: true,
+            phases: { select: { id: true, status: true } },
             contract: {
               include: {
                 escrow: true,
                 worker: true,
               },
             },
-            phases: { select: { id: true, status: true } },
           },
         },
       },
@@ -346,7 +367,7 @@ export class PaymentsService {
         { idempotencyKey: `phase_${payload.phaseId}` },
       );
 
-      await this.prisma.payment.create({
+      const paymentRow = await this.prisma.payment.create({
         data: {
           escrowId: escrow.id,
           recipientType: 'worker',
@@ -355,6 +376,15 @@ export class PaymentsService {
           stripeTransferId: transfer.id,
           paidAt: new Date(),
         },
+      });
+
+      this.eventEmitter.emit('payment.transferred', {
+        paymentId: paymentRow.id,
+        escrowId: escrow.id,
+        phaseId: payload.phaseId,
+        workerUserId: worker.userId,
+        amount: workerCents / 100,
+        projectTitle: phase.project.title,
       });
 
       this.logger.log(

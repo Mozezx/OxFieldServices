@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "420140898358",
+    "project_id": "ox-field-services",
+    "storage_bucket": "ox-field-services.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:420140898358:android:bbaf73b486e1cc0502e097",
+        "android_client_info": {
+          "package_name": "com.oxservices.ox_app_client"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDQOx8LnLmnVNmChQV9_iGFWlhIlkucOtM"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

@@ -1,32 +1,41 @@
 ﻿import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lucide_flutter/lucide_flutter.dart';
 
-class MainShell extends StatelessWidget {
+import '../../features/notifications/notifications_provider.dart';
+
+class MainShell extends ConsumerWidget {
   const MainShell({super.key, required this.child});
 
   final Widget child;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final location = GoRouterState.of(context).matchedLocation;
     final index = _indexFromLocation(location);
+    final unreadAsync = ref.watch(unreadNotificationsCountProvider);
+    final unread = unreadAsync.maybeWhen(data: (c) => c, orElse: () => 0);
 
     return Scaffold(
       body: child,
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: index < 0 ? 0 : index,
         onTap: (i) => _onTabTap(context, i),
-        items: const [
-          BottomNavigationBarItem(
+        items: [
+          const BottomNavigationBarItem(
             icon: Icon(LucideIcons.folderOpen),
             label: 'Projetos',
           ),
           BottomNavigationBarItem(
-            icon: Icon(LucideIcons.bell),
+            icon: Badge(
+              isLabelVisible: unread > 0,
+              label: Text(unread > 99 ? '99+' : '$unread'),
+              child: const Icon(LucideIcons.bell),
+            ),
             label: 'Notificações',
           ),
-          BottomNavigationBarItem(
+          const BottomNavigationBarItem(
             icon: Icon(LucideIcons.user),
             label: 'Perfil',
           ),

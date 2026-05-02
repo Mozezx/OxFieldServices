@@ -54,6 +54,17 @@ export class StripeWebhookController {
         }
         break;
       }
+      case 'payment_intent.payment_failed': {
+        const pi = event.data.object as {
+          metadata?: { contractId?: string };
+          last_payment_error?: { message?: string };
+        };
+        this.paymentsService.handlePaymentIntentFailed(
+          pi.metadata?.contractId,
+          pi.last_payment_error?.message,
+        );
+        break;
+      }
       // transfer.created é registrado em releaseSplitPayment — sem ação extra necessária
     }
 

@@ -3,7 +3,7 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import Image from 'next/image'
 import {
-  Briefcase, Users, CreditCard, Shuffle, Wrench,
+  Briefcase, Users, CreditCard, Shuffle, Wrench, Bell,
   LogOut, ChevronLeft, ChevronRight,
 } from 'lucide-react'
 import { cn } from '@/lib/utils/cn'
@@ -14,6 +14,7 @@ const navItems = [
   { href: '/projects', icon: Briefcase, label: 'Projetos' },
   { href: '/workers',  icon: Users,     label: 'Workers' },
   { href: '/payments', icon: CreditCard, label: 'Pagamentos' },
+  { href: '/notifications', icon: Bell, label: 'Notificações' },
   { href: '/skills',   icon: Wrench,    label: 'Skills' },
 ]
 
