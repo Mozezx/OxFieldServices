@@ -35,6 +35,9 @@ class EvidenceModel {
         url: json['url'] as String,
         type: json['type'] as String? ?? 'photo',
       );
+
+  bool get isVideo => type.startsWith('video/');
+  bool get isImage => type.startsWith('image/');
 }
 
 class PhaseExecutionModel {
@@ -69,7 +72,11 @@ class PhaseExecutionModel {
             .toList(),
       );
 
-  bool get canSubmit => evidences.length >= 3;
+  int get imageEvidenceCount => evidences.where((e) => e.isImage).length;
+  int get videoEvidenceCount => evidences.where((e) => e.isVideo).length;
+  bool get hasRequiredEvidence => imageEvidenceCount >= 1 && videoEvidenceCount >= 1;
+  bool get meetsLegacyEvidenceRequirement => evidences.length >= 3;
+  bool get canSubmit => hasRequiredEvidence || meetsLegacyEvidenceRequirement;
 }
 
 // --- Providers ---

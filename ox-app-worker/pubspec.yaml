@@ -30,6 +30,7 @@ dependencies:
 
   # Funcionalidades
   image_picker: ^1.0.7
+  video_player: ^2.9.2
   firebase_core: ^2.27.0
   firebase_messaging: ^14.7.19
   flutter_local_notifications: ^17.1.2

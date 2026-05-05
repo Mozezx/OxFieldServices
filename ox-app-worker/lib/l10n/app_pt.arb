@@ -229,9 +229,12 @@
   "@phaseChecklistItemPhotoDoc": {},
   "phaseEvidences": "EVIDÊNCIAS",
   "@phaseEvidences": {},
-  "phaseEvidenceCount": "{count}/3 obrigatórias",
+  "phaseEvidenceCount": "{images} foto(s) • {videos} vídeo(s)",
   "@phaseEvidenceCount": {
-    "placeholders": { "count": { "type": "int" } }
+    "placeholders": {
+      "images": { "type": "int" },
+      "videos": { "type": "int" }
+    }
   },
   "phaseAmountLabel": "€ {amount} nesta fase",
   "@phaseAmountLabel": {
@@ -251,6 +254,8 @@
   "@phaseSubmitButton": {},
   "phaseAddMinPhotos": "Adicione pelo menos 3 fotos/vídeos para poder enviar",
   "@phaseAddMinPhotos": {},
+  "phaseAddRequiredMedia": "É obrigatório enviar 1 foto e 1 vídeo (30s a 1m30s).",
+  "@phaseAddRequiredMedia": {},
   "phaseAwaitingReview": "Aguardando o cliente revisar e validar a fase.",
   "@phaseAwaitingReview": {},
   "phaseSubmittedSuccess": "Fase enviada para revisão do cliente!",
@@ -283,7 +288,7 @@
   "phaseStatusAwaitingStart": "Aguardando início",
   "@phaseStatusAwaitingStart": {},
 
-  "uploadTitle": "Evidências ({count}/3)",
+  "uploadTitle": "Evidências ({count}/2)",
   "@uploadTitle": {
     "placeholders": { "count": { "type": "int" } }
   },
@@ -291,6 +296,26 @@
   "@uploadNoPhoto": {},
   "uploadMinPhotos": "Mínimo 3 fotos para enviar a fase",
   "@uploadMinPhotos": {},
+  "uploadNoMediaSelected": "Nenhuma evidência selecionada",
+  "@uploadNoMediaSelected": {},
+  "uploadNeedPhotoAndVideo": "Obrigatório: 1 foto e 1 vídeo entre 30s e 1m30s",
+  "@uploadNeedPhotoAndVideo": {},
+  "uploadSelectedPhoto": "Foto selecionada",
+  "@uploadSelectedPhoto": {},
+  "uploadSelectedVideo": "Vídeo selecionado",
+  "@uploadSelectedVideo": {},
+  "uploadSelectedVideoWithDuration": "Vídeo selecionado ({duration})",
+  "@uploadSelectedVideoWithDuration": {
+    "placeholders": { "duration": { "type": "String" } }
+  },
+  "uploadRecordVideo": "Gravar vídeo",
+  "@uploadRecordVideo": {},
+  "uploadVideoFromGallery": "Vídeo da galeria",
+  "@uploadVideoFromGallery": {},
+  "uploadConfirmRequired": "Enviar foto e vídeo",
+  "@uploadConfirmRequired": {},
+  "uploadVideoDurationInvalid": "O vídeo deve ter entre 30s e 1m30s.",
+  "@uploadVideoDurationInvalid": {},
   "uploadTakePhoto": "Tirar foto",
   "@uploadTakePhoto": {},
   "uploadFromGallery": "Da galeria",

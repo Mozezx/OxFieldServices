@@ -215,7 +215,10 @@ class PhaseExecutionScreen extends ConsumerWidget {
                         ),
                       ),
                       Text(
-                        t.phaseEvidenceCount(phase.evidences.length),
+                        t.phaseEvidenceCount(
+                          phase.imageEvidenceCount,
+                          phase.videoEvidenceCount,
+                        ),
                         style: TextStyle(
                           color: phase.canSubmit
                               ? AppColors.accent
@@ -370,7 +373,7 @@ class PhaseExecutionScreen extends ConsumerWidget {
                     Padding(
                       padding: const EdgeInsets.only(top: 8),
                       child: Text(
-                        t.phaseAddMinPhotos,
+                        t.phaseAddRequiredMedia,
                         style: TextStyle(
                           color: AppColors.textSecondary.withValues(alpha: 0.7),
                           fontSize: 12,

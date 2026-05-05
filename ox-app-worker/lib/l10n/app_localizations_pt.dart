@@ -322,8 +322,8 @@ class AppLocalizationsPt extends AppLocalizations {
   String get phaseEvidences => 'EVIDÊNCIAS';
 
   @override
-  String phaseEvidenceCount(int count) {
-    return '$count/3 obrigatórias';
+  String phaseEvidenceCount(int images, int videos) {
+    return '$images foto(s) • $videos vídeo(s)';
   }
 
   @override
@@ -354,6 +354,10 @@ class AppLocalizationsPt extends AppLocalizations {
   @override
   String get phaseAddMinPhotos =>
       'Adicione pelo menos 3 fotos/vídeos para poder enviar';
+
+  @override
+  String get phaseAddRequiredMedia =>
+      'É obrigatório enviar 1 foto e 1 vídeo (30s a 1m30s).';
 
   @override
   String get phaseAwaitingReview =>
@@ -406,7 +410,7 @@ class AppLocalizationsPt extends AppLocalizations {
 
   @override
   String uploadTitle(int count) {
-    return 'Evidências ($count/3)';
+    return 'Evidências ($count/2)';
   }
 
   @override
@@ -414,6 +418,37 @@ class AppLocalizationsPt extends AppLocalizations {
 
   @override
   String get uploadMinPhotos => 'Mínimo 3 fotos para enviar a fase';
+
+  @override
+  String get uploadNoMediaSelected => 'Nenhuma evidência selecionada';
+
+  @override
+  String get uploadNeedPhotoAndVideo =>
+      'Obrigatório: 1 foto e 1 vídeo entre 30s e 1m30s';
+
+  @override
+  String get uploadSelectedPhoto => 'Foto selecionada';
+
+  @override
+  String get uploadSelectedVideo => 'Vídeo selecionado';
+
+  @override
+  String uploadSelectedVideoWithDuration(String duration) {
+    return 'Vídeo selecionado ($duration)';
+  }
+
+  @override
+  String get uploadRecordVideo => 'Gravar vídeo';
+
+  @override
+  String get uploadVideoFromGallery => 'Vídeo da galeria';
+
+  @override
+  String get uploadConfirmRequired => 'Enviar foto e vídeo';
+
+  @override
+  String get uploadVideoDurationInvalid =>
+      'O vídeo deve ter entre 30s e 1m30s.';
 
   @override
   String get uploadTakePhoto => 'Tirar foto';

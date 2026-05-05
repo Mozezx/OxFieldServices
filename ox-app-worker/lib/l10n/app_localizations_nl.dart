@@ -324,8 +324,8 @@ class AppLocalizationsNl extends AppLocalizations {
   String get phaseEvidences => 'BEWIJSMATERIAAL';
 
   @override
-  String phaseEvidenceCount(int count) {
-    return '$count/3 verplicht';
+  String phaseEvidenceCount(int images, int videos) {
+    return '$images foto(\'s) • $videos video(\'s)';
   }
 
   @override
@@ -356,6 +356,10 @@ class AppLocalizationsNl extends AppLocalizations {
   @override
   String get phaseAddMinPhotos =>
       'Voeg minimaal 3 foto\'s/video\'s toe om in te dienen';
+
+  @override
+  String get phaseAddRequiredMedia =>
+      'Je moet 1 foto en 1 video uploaden (30s tot 1m30s).';
 
   @override
   String get phaseAwaitingReview =>
@@ -408,7 +412,7 @@ class AppLocalizationsNl extends AppLocalizations {
 
   @override
   String uploadTitle(int count) {
-    return 'Bewijsmateriaal ($count/3)';
+    return 'Bewijsmateriaal ($count/2)';
   }
 
   @override
@@ -416,6 +420,37 @@ class AppLocalizationsNl extends AppLocalizations {
 
   @override
   String get uploadMinPhotos => 'Minimaal 3 foto\'s om de fase in te dienen';
+
+  @override
+  String get uploadNoMediaSelected => 'Geen bewijs geselecteerd';
+
+  @override
+  String get uploadNeedPhotoAndVideo =>
+      'Verplicht: 1 foto en 1 video tussen 30s en 1m30s';
+
+  @override
+  String get uploadSelectedPhoto => 'Geselecteerde foto';
+
+  @override
+  String get uploadSelectedVideo => 'Geselecteerde video';
+
+  @override
+  String uploadSelectedVideoWithDuration(String duration) {
+    return 'Geselecteerde video ($duration)';
+  }
+
+  @override
+  String get uploadRecordVideo => 'Video opnemen';
+
+  @override
+  String get uploadVideoFromGallery => 'Video uit galerij';
+
+  @override
+  String get uploadConfirmRequired => 'Foto en video uploaden';
+
+  @override
+  String get uploadVideoDurationInvalid =>
+      'Video moet tussen 30s en 1m30s zijn.';
 
   @override
   String get uploadTakePhoto => 'Foto maken';

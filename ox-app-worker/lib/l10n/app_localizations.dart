@@ -687,8 +687,8 @@ abstract class AppLocalizations {
   /// No description provided for @phaseEvidenceCount.
   ///
   /// In pt, this message translates to:
-  /// **'{count}/3 obrigatórias'**
-  String phaseEvidenceCount(int count);
+  /// **'{images} foto(s) • {videos} vídeo(s)'**
+  String phaseEvidenceCount(int images, int videos);
 
   /// No description provided for @phaseAmountLabel.
   ///
@@ -737,6 +737,12 @@ abstract class AppLocalizations {
   /// In pt, this message translates to:
   /// **'Adicione pelo menos 3 fotos/vídeos para poder enviar'**
   String get phaseAddMinPhotos;
+
+  /// No description provided for @phaseAddRequiredMedia.
+  ///
+  /// In pt, this message translates to:
+  /// **'É obrigatório enviar 1 foto e 1 vídeo (30s a 1m30s).'**
+  String get phaseAddRequiredMedia;
 
   /// No description provided for @phaseAwaitingReview.
   ///
@@ -831,7 +837,7 @@ abstract class AppLocalizations {
   /// No description provided for @uploadTitle.
   ///
   /// In pt, this message translates to:
-  /// **'Evidências ({count}/3)'**
+  /// **'Evidências ({count}/2)'**
   String uploadTitle(int count);
 
   /// No description provided for @uploadNoPhoto.
@@ -845,6 +851,60 @@ abstract class AppLocalizations {
   /// In pt, this message translates to:
   /// **'Mínimo 3 fotos para enviar a fase'**
   String get uploadMinPhotos;
+
+  /// No description provided for @uploadNoMediaSelected.
+  ///
+  /// In pt, this message translates to:
+  /// **'Nenhuma evidência selecionada'**
+  String get uploadNoMediaSelected;
+
+  /// No description provided for @uploadNeedPhotoAndVideo.
+  ///
+  /// In pt, this message translates to:
+  /// **'Obrigatório: 1 foto e 1 vídeo entre 30s e 1m30s'**
+  String get uploadNeedPhotoAndVideo;
+
+  /// No description provided for @uploadSelectedPhoto.
+  ///
+  /// In pt, this message translates to:
+  /// **'Foto selecionada'**
+  String get uploadSelectedPhoto;
+
+  /// No description provided for @uploadSelectedVideo.
+  ///
+  /// In pt, this message translates to:
+  /// **'Vídeo selecionado'**
+  String get uploadSelectedVideo;
+
+  /// No description provided for @uploadSelectedVideoWithDuration.
+  ///
+  /// In pt, this message translates to:
+  /// **'Vídeo selecionado ({duration})'**
+  String uploadSelectedVideoWithDuration(String duration);
+
+  /// No description provided for @uploadRecordVideo.
+  ///
+  /// In pt, this message translates to:
+  /// **'Gravar vídeo'**
+  String get uploadRecordVideo;
+
+  /// No description provided for @uploadVideoFromGallery.
+  ///
+  /// In pt, this message translates to:
+  /// **'Vídeo da galeria'**
+  String get uploadVideoFromGallery;
+
+  /// No description provided for @uploadConfirmRequired.
+  ///
+  /// In pt, this message translates to:
+  /// **'Enviar foto e vídeo'**
+  String get uploadConfirmRequired;
+
+  /// No description provided for @uploadVideoDurationInvalid.
+  ///
+  /// In pt, this message translates to:
+  /// **'O vídeo deve ter entre 30s e 1m30s.'**
+  String get uploadVideoDurationInvalid;
 
   /// No description provided for @uploadTakePhoto.
   ///

@@ -94,11 +94,7 @@ export class PhasesService {
    *   under_review → validated | rejected (cliente/admin valida)
    *   rejected → in_progress (worker corrige)
    */
-  async updateStatus(
-    id: string,
-    userId: string,
-    dto: UpdatePhaseStatusDto,
-  ) {
+  async updateStatus(id: string, userId: string, dto: UpdatePhaseStatusDto) {
     const phase = await this.prisma.projectPhase.findUnique({
       where: { id },
       include: {
@@ -148,7 +144,7 @@ export class PhasesService {
 
     // Só pode iniciar ou retomar fase se projeto estiver em execução
     if (
-      (newStatus === 'in_progress') &&
+      newStatus === 'in_progress' &&
       phase.project.status !== 'in_execution'
     ) {
       throw new BadRequestException(
@@ -157,10 +153,7 @@ export class PhasesService {
     }
 
     // Apenas o worker atribuído ao projeto pode iniciar/retomar fases
-    if (
-      (newStatus === 'in_progress') &&
-      user.role !== 'admin'
-    ) {
+    if (newStatus === 'in_progress' && user.role !== 'admin') {
       const worker = await this.prisma.worker.findUnique({ where: { userId } });
       if (!worker || phase.project.contract?.workerId !== worker.id) {
         throw new ForbiddenException(
@@ -171,13 +164,29 @@ export class PhasesService {
 
     // Obrigatório ter evidências para enviar para revisão
     if (newStatus === 'under_review') {
-      const evidenceCount = await this.prisma.phaseEvidence.count({
+      const evidences = await this.prisma.phaseEvidence.findMany({
         where: { phaseId: id },
+        select: { type: true },
       });
 
-      if (evidenceCount === 0) {
+      if (evidences.length === 0) {
         throw new BadRequestException(
           'Upload de evidências obrigatório antes de enviar para revisão.',
+        );
+      }
+
+      const imageCount = evidences.filter((item) =>
+        item.type.startsWith('image/'),
+      ).length;
+      const videoCount = evidences.filter((item) =>
+        item.type.startsWith('video/'),
+      ).length;
+      const meetsNewRequirement = imageCount >= 1 && videoCount >= 1;
+      const meetsLegacyRequirement = evidences.length >= 3;
+
+      if (!meetsNewRequirement && !meetsLegacyRequirement) {
+        throw new BadRequestException(
+          'Envie pelo menos 1 foto e 1 vídeo (entre 30s e 1m30s) antes de enviar para revisão.',
         );
       }
     }
@@ -226,8 +235,13 @@ export class PhasesService {
       throw new BadRequestException('Sem evidências para validar');
     }
 
-    if (phase.status !== 'under_review' && phase.status !== 'evidence_uploaded') {
-      this.logger.warn(`Tentativa de validar fase ${phaseId} com status inválido: ${phase.status}`);
+    if (
+      phase.status !== 'under_review' &&
+      phase.status !== 'evidence_uploaded'
+    ) {
+      this.logger.warn(
+        `Tentativa de validar fase ${phaseId} com status inválido: ${phase.status}`,
+      );
       throw new BadRequestException(
         `Fase precisa estar em revisão ou com evidências enviadas. Status atual: ${phase.status}`,
       );
@@ -235,7 +249,9 @@ export class PhasesService {
 
     const newStatus: PhaseStatus = approved ? 'validated' : 'rejected';
 
-    this.logger.log(`Fase ${phaseId} ${approved ? 'aprovada' : 'rejeitada'} por usuário ${userId}`);
+    this.logger.log(
+      `Fase ${phaseId} ${approved ? 'aprovada' : 'rejeitada'} por usuário ${userId}`,
+    );
 
     const updated = await this.prisma.projectPhase.update({
       where: { id: phaseId },
