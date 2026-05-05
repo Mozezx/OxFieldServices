@@ -8,8 +8,6 @@ on:
 
 env:
   REGISTRY: ghcr.io
-  BACKEND_IMAGE: ghcr.io/${{ github.repository_owner }}/ox-backend
-  ADMIN_IMAGE: ghcr.io/${{ github.repository_owner }}/ox-admin
 
 jobs:
   build-backend:
@@ -19,6 +17,10 @@ jobs:
       packages: write
     steps:
       - uses: actions/checkout@v4
+      - name: Compute image namespace
+        id: repo_owner
+        shell: bash
+        run: echo "value=${GITHUB_REPOSITORY_OWNER,,}" >> "$GITHUB_OUTPUT"
       - uses: docker/login-action@v3
         with:
           registry: ${{ env.REGISTRY }}
@@ -27,7 +29,7 @@ jobs:
       - uses: docker/metadata-action@v5
         id: meta
         with:
-          images: ${{ env.BACKEND_IMAGE }}
+          images: ghcr.io/${{ steps.repo_owner.outputs.value }}/ox-backend
           tags: |
             type=sha
             type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
@@ -47,6 +49,10 @@ jobs:
       packages: write
     steps:
       - uses: actions/checkout@v4
+      - name: Compute image namespace
+        id: repo_owner
+        shell: bash
+        run: echo "value=${GITHUB_REPOSITORY_OWNER,,}" >> "$GITHUB_OUTPUT"
       - uses: docker/login-action@v3
         with:
           registry: ${{ env.REGISTRY }}
@@ -55,7 +61,7 @@ jobs:
       - uses: docker/metadata-action@v5
         id: meta
         with:
-          images: ${{ env.ADMIN_IMAGE }}
+          images: ghcr.io/${{ steps.repo_owner.outputs.value }}/ox-admin
           tags: |
             type=sha
             type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}

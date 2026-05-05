@@ -10,5 +10,4 @@ coverage
 *.log
 npm-debug.log*
 docker-compose*.yml
-Dockerfile*
 .dockerignore
