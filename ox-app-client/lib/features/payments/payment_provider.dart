@@ -55,7 +55,7 @@ class EscrowIntent {
 }
 
 final escrowProvider =
-    FutureProvider.autoDispose.family<EscrowModel?, String>((ref, contractId) async {
+    FutureProvider.family<EscrowModel?, String>((ref, contractId) async {
   final api = ref.watch(apiClientProvider);
   try {
     final res = await api.dio.get(ApiEndpoints.paymentEscrowByContract(contractId));

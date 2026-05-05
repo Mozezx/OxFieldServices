@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -7,7 +8,25 @@ import '../../core/widgets/ox_app_bar.dart';
 import '../../core/widgets/ox_badge.dart';
 import '../../core/widgets/ox_button.dart';
 import '../../core/widgets/ox_empty_state.dart';
+import '../../l10n/app_localizations.dart';
 import 'execution_provider.dart';
+
+String _phaseChecklistLabel(AppLocalizations t, String key) {
+  switch (key) {
+    case 'materials':
+      return t.phaseChecklistItemMaterials;
+    case 'ppe':
+      return t.phaseChecklistItemPpe;
+    case 'work_started':
+      return t.phaseChecklistItemWorkStarted;
+    case 'safety':
+      return t.phaseChecklistItemSafety;
+    case 'photo_doc':
+      return t.phaseChecklistItemPhotoDoc;
+    default:
+      return key;
+  }
+}
 
 class PhaseExecutionScreen extends ConsumerWidget {
   const PhaseExecutionScreen({super.key, this.phaseId});
@@ -16,27 +35,38 @@ class PhaseExecutionScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final t = AppLocalizations.of(context)!;
+
     if (phaseId == null) {
       return const _NoActivePhaseScreen();
     }
 
     final phaseAsync = ref.watch(phaseExecutionProvider(phaseId));
     final checklist = ref.watch(checklistProvider);
-    final submitState = ref.watch(phaseSubmitProvider);
-    final startState = ref.watch(startPhaseProvider);
+    final submitState = ref.watch(phaseSubmitProvider(phaseId!));
+    final startState = ref.watch(startPhaseProvider(phaseId!));
 
-    ref.listen(phaseSubmitProvider, (_, next) {
+    ref.listen(phaseSubmitProvider(phaseId!), (previous, next) {
+      final triggeredByAction = previous is AsyncLoading;
+      if (!triggeredByAction) return;
+
       if (next is AsyncError) {
+        final e = next.error;
+        final msg = e is PhaseNotFoundException
+            ? t.phaseErrorNotFound
+            : e is PhaseSubmitPreconditionException
+                ? t.phaseErrorNeedEvidenceBeforeSubmit
+                : e.toString();
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(next.error.toString()),
+            content: Text(msg),
             backgroundColor: AppColors.error,
           ),
         );
       } else if (next is AsyncData) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Fase enviada para revisao do cliente!'),
+          SnackBar(
+            content: Text(t.phaseSubmittedSuccess),
             backgroundColor: AppColors.accent,
           ),
         );
@@ -44,7 +74,10 @@ class PhaseExecutionScreen extends ConsumerWidget {
       }
     });
 
-    ref.listen(startPhaseProvider, (_, next) {
+    ref.listen(startPhaseProvider(phaseId!), (previous, next) {
+      final triggeredByAction = previous is AsyncLoading;
+      if (!triggeredByAction) return;
+
       if (next is AsyncError) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -54,8 +87,8 @@ class PhaseExecutionScreen extends ConsumerWidget {
         );
       } else if (next is AsyncData) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Fase iniciada! Você pode subir as evidências.'),
+          SnackBar(
+            content: Text(t.phaseStartedSuccess),
             backgroundColor: AppColors.accent,
           ),
         );
@@ -63,13 +96,15 @@ class PhaseExecutionScreen extends ConsumerWidget {
     });
 
     return Scaffold(
-      appBar: const OxAppBar(title: 'Execucao da Fase'),
+      appBar: OxAppBar(title: t.phaseExecutionTitle),
       body: phaseAsync.when(
         loading: () =>
             const Center(child: CircularProgressIndicator(color: AppColors.accent)),
         error: (e, _) => Center(
-          child: Text('Erro: $e',
-              style: const TextStyle(color: AppColors.error)),
+          child: Text(
+            t.commonErrorWithMessage(e.toString()),
+            style: const TextStyle(color: AppColors.error),
+          ),
         ),
         data: (phase) {
           if (phase == null) {
@@ -81,12 +116,11 @@ class PhaseExecutionScreen extends ConsumerWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Phase header
                 Row(
                   children: [
                     Expanded(
                       child: Text(
-                        'Fase ${phase.order} — ${phase.name}',
+                        t.phaseOrderAndName(phase.order, phase.name),
                         style: const TextStyle(
                           color: AppColors.textPrimary,
                           fontSize: 20,
@@ -96,14 +130,14 @@ class PhaseExecutionScreen extends ConsumerWidget {
                       ),
                     ),
                     OxBadge(
-                      label: _phaseLabel(phase.status),
+                      label: _phaseLabel(t, phase.status),
                       status: phaseStatusToBadge(phase.status),
                     ),
                   ],
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  '€ ${phase.amount.toStringAsFixed(2)} nesta fase',
+                  t.phaseAmountLabel(phase.amount.toStringAsFixed(2)),
                   style: const TextStyle(
                     color: AppColors.textSecondary,
                     fontFamily: 'Inter',
@@ -111,11 +145,9 @@ class PhaseExecutionScreen extends ConsumerWidget {
                   ),
                 ),
                 const SizedBox(height: 28),
-
-                // Checklist
-                const Text(
-                  'CHECKLIST DA FASE',
-                  style: TextStyle(
+                Text(
+                  t.phaseChecklist,
+                  style: const TextStyle(
                     color: AppColors.textSecondary,
                     fontSize: 12,
                     fontWeight: FontWeight.w600,
@@ -124,17 +156,14 @@ class PhaseExecutionScreen extends ConsumerWidget {
                   ),
                 ),
                 const SizedBox(height: 12),
-                ...checklist.entries.map((entry) => _ChecklistItem(
-                      label: entry.key,
-                      checked: entry.value,
+                ...kPhaseChecklistKeys.map((key) => _ChecklistItem(
+                      label: _phaseChecklistLabel(t, key),
+                      checked: checklist[key] ?? false,
                       onTap: () =>
-                          ref.read(checklistProvider.notifier).toggle(entry.key),
+                          ref.read(checklistProvider.notifier).toggle(key),
                     )),
-
                 const SizedBox(height: 28),
-
                 if (phase.status == 'pending') ...[
-                  // Fase ainda não iniciada — botão para iniciar
                   Container(
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
@@ -144,15 +173,15 @@ class PhaseExecutionScreen extends ConsumerWidget {
                         color: AppColors.accent.withValues(alpha: 0.3),
                       ),
                     ),
-                    child: const Row(
+                    child: Row(
                       children: [
-                        Icon(LucideIcons.zap,
+                        const Icon(LucideIcons.zap,
                             size: 20, color: AppColors.accent),
-                        SizedBox(width: 10),
+                        const SizedBox(width: 10),
                         Expanded(
                           child: Text(
-                            'Pronto para começar? Inicie a fase para liberar o upload de evidências.',
-                            style: TextStyle(
+                            t.phaseReadyMsg,
+                            style: const TextStyle(
                               color: AppColors.textSecondary,
                               fontSize: 13,
                               fontFamily: 'Inter',
@@ -164,21 +193,20 @@ class PhaseExecutionScreen extends ConsumerWidget {
                   ),
                   const SizedBox(height: 16),
                   OxButton(
-                    label: 'Iniciar Fase',
+                    label: t.phaseStartButton,
                     icon: LucideIcons.play,
                     isLoading: startState is AsyncLoading,
                     onPressed: () => ref
-                        .read(startPhaseProvider.notifier)
-                        .startPhase(phase.id),
+                        .read(startPhaseProvider(phase.id).notifier)
+                        .startPhase(),
                   ),
                 ] else ...[
-                  // Evidence upload
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      const Text(
-                        'EVIDENCIAS',
-                        style: TextStyle(
+                      Text(
+                        t.phaseEvidences,
+                        style: const TextStyle(
                           color: AppColors.textSecondary,
                           fontSize: 12,
                           fontWeight: FontWeight.w600,
@@ -187,7 +215,7 @@ class PhaseExecutionScreen extends ConsumerWidget {
                         ),
                       ),
                       Text(
-                        '${phase.evidences.length}/3 obrigatorias',
+                        t.phaseEvidenceCount(phase.evidences.length),
                         style: TextStyle(
                           color: phase.canSubmit
                               ? AppColors.accent
@@ -200,7 +228,6 @@ class PhaseExecutionScreen extends ConsumerWidget {
                     ],
                   ),
                   const SizedBox(height: 12),
-
                   if (phase.evidences.isNotEmpty) ...[
                     GridView.builder(
                       shrinkWrap: true,
@@ -217,10 +244,23 @@ class PhaseExecutionScreen extends ConsumerWidget {
                         child: Stack(
                           fit: StackFit.expand,
                           children: [
-                            Image.network(
-                              phase.evidences[i].url,
+                            CachedNetworkImage(
+                              imageUrl: phase.evidences[i].url,
                               fit: BoxFit.cover,
-                              errorBuilder: (_, __, ___) => Container(
+                              placeholder: (_, __) => Container(
+                                color: AppColors.surface2,
+                                child: const Center(
+                                  child: SizedBox(
+                                    width: 20,
+                                    height: 20,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      color: AppColors.accent,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              errorWidget: (_, __, ___) => Container(
                                 color: AppColors.surface2,
                                 child: const Icon(LucideIcons.image,
                                     color: AppColors.textSecondary),
@@ -244,8 +284,6 @@ class PhaseExecutionScreen extends ConsumerWidget {
                     ),
                     const SizedBox(height: 12),
                   ],
-
-                  // Upload button — apenas quando a fase aceita uploads
                   if (['in_progress', 'evidence_uploaded', 'rejected']
                       .contains(phase.status))
                     GestureDetector(
@@ -262,14 +300,14 @@ class PhaseExecutionScreen extends ConsumerWidget {
                             style: BorderStyle.solid,
                           ),
                         ),
-                        child: const Column(
+                        child: Column(
                           children: [
-                            Icon(LucideIcons.camera,
+                            const Icon(LucideIcons.camera,
                                 color: AppColors.accent, size: 28),
-                            SizedBox(height: 8),
+                            const SizedBox(height: 8),
                             Text(
-                              'Adicionar foto / video',
-                              style: TextStyle(
+                              t.phaseAddMedia,
+                              style: const TextStyle(
                                 color: AppColors.accent,
                                 fontWeight: FontWeight.w600,
                                 fontFamily: 'Inter',
@@ -280,12 +318,10 @@ class PhaseExecutionScreen extends ConsumerWidget {
                         ),
                       ),
                     ),
-
                   const SizedBox(height: 32),
-
                   if (phase.status != 'under_review')
                     OxButton(
-                      label: 'Enviar para Revisao',
+                      label: t.phaseSubmitButton,
                       icon: LucideIcons.send,
                       isLoading: submitState is AsyncLoading,
                       onPressed: phase.canSubmit &&
@@ -297,8 +333,8 @@ class PhaseExecutionScreen extends ConsumerWidget {
                               );
                               if (confirm == true) {
                                 ref
-                                    .read(phaseSubmitProvider.notifier)
-                                    .submitForReview(phase.id);
+                                    .read(phaseSubmitProvider(phase.id).notifier)
+                                    .submitForReview();
                               }
                             }
                           : null,
@@ -312,15 +348,15 @@ class PhaseExecutionScreen extends ConsumerWidget {
                         border: Border.all(
                             color: AppColors.warning.withValues(alpha: 0.3)),
                       ),
-                      child: const Row(
+                      child: Row(
                         children: [
-                          Icon(LucideIcons.clock,
+                          const Icon(LucideIcons.clock,
                               size: 18, color: AppColors.warning),
-                          SizedBox(width: 12),
+                          const SizedBox(width: 12),
                           Expanded(
                             child: Text(
-                              'Aguardando o cliente revisar e validar a fase.',
-                              style: TextStyle(
+                              t.phaseAwaitingReview,
+                              style: const TextStyle(
                                 color: AppColors.textSecondary,
                                 fontSize: 13,
                                 fontFamily: 'Inter',
@@ -334,7 +370,7 @@ class PhaseExecutionScreen extends ConsumerWidget {
                     Padding(
                       padding: const EdgeInsets.only(top: 8),
                       child: Text(
-                        'Adicione pelo menos 3 fotos/videos para poder enviar',
+                        t.phaseAddMinPhotos,
                         style: TextStyle(
                           color: AppColors.textSecondary.withValues(alpha: 0.7),
                           fontSize: 12,
@@ -352,14 +388,14 @@ class PhaseExecutionScreen extends ConsumerWidget {
     );
   }
 
-  String _phaseLabel(String status) {
+  String _phaseLabel(AppLocalizations t, String status) {
     switch (status) {
-      case 'in_progress': return 'Em execucao';
-      case 'under_review': return 'Em revisao';
-      case 'evidence_uploaded': return 'Evidencias enviadas';
-      case 'validated': return 'Validada';
-      case 'rejected': return 'Rejeitada';
-      default: return 'Pendente';
+      case 'in_progress': return t.phaseStatusInProgress;
+      case 'under_review': return t.phaseStatusUnderReview;
+      case 'evidence_uploaded': return t.phaseStatusEvidenceUploaded;
+      case 'validated': return t.phaseStatusValidated;
+      case 'rejected': return t.phaseStatusRejected;
+      default: return t.phaseStatusPending;
     }
   }
 }
@@ -422,12 +458,12 @@ class _NoActivePhaseScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Scaffold(
+    final t = AppLocalizations.of(context)!;
+    return Scaffold(
       body: OxEmptyState(
         icon: LucideIcons.zap,
-        title: 'Nenhuma fase em execucao',
-        subtitle:
-            'Aceite um job disponivel para comecar a executar suas fases.',
+        title: t.phaseNoActiveTitle,
+        subtitle: t.phaseNoActiveSubtitle,
       ),
     );
   }
@@ -438,19 +474,20 @@ class _SubmitConfirmDialog extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final t = AppLocalizations.of(context)!;
     return AlertDialog(
       backgroundColor: AppColors.surface,
-      title: const Text(
-        'Enviar para Revisao',
-        style: TextStyle(
+      title: Text(
+        t.phaseSubmitDialogTitle,
+        style: const TextStyle(
           color: AppColors.textPrimary,
           fontFamily: 'Inter',
           fontWeight: FontWeight.w700,
         ),
       ),
-      content: const Text(
-        'O cliente sera notificado para revisar as evidencias enviadas. Ao aprovar, o pagamento desta fase sera liberado para voce.',
-        style: TextStyle(
+      content: Text(
+        t.phaseSubmitDialogContent,
+        style: const TextStyle(
           color: AppColors.textSecondary,
           fontFamily: 'Inter',
           fontSize: 14,
@@ -459,8 +496,8 @@ class _SubmitConfirmDialog extends StatelessWidget {
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context, false),
-          child: const Text('Cancelar',
-              style: TextStyle(color: AppColors.textSecondary)),
+          child: Text(t.commonCancel,
+              style: const TextStyle(color: AppColors.textSecondary)),
         ),
         ElevatedButton(
           onPressed: () => Navigator.pop(context, true),
@@ -468,8 +505,8 @@ class _SubmitConfirmDialog extends StatelessWidget {
             backgroundColor: AppColors.accent,
             foregroundColor: AppColors.primary,
           ),
-          child: const Text('Enviar',
-              style: TextStyle(fontWeight: FontWeight.w700)),
+          child: Text(t.dialogSend,
+              style: const TextStyle(fontWeight: FontWeight.w700)),
         ),
       ],
     );

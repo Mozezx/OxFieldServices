@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -83,10 +84,23 @@ class PhaseDetailScreen extends ConsumerWidget {
                       onTap: () => _showFullscreen(context, phase.evidences[i].url),
                       child: ClipRRect(
                         borderRadius: BorderRadius.circular(8),
-                        child: Image.network(
-                          phase.evidences[i].url,
+                        child: CachedNetworkImage(
+                          imageUrl: phase.evidences[i].url,
                           fit: BoxFit.cover,
-                          errorBuilder: (_, __, ___) => Container(
+                          placeholder: (_, __) => Container(
+                            color: AppColors.surface2,
+                            child: const Center(
+                              child: SizedBox(
+                                width: 24,
+                                height: 24,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: AppColors.accent,
+                                ),
+                              ),
+                            ),
+                          ),
+                          errorWidget: (_, __, ___) => Container(
                             color: AppColors.surface2,
                             child: const Icon(LucideIcons.image, color: AppColors.textSecondary),
                           ),
@@ -146,7 +160,18 @@ class PhaseDetailScreen extends ConsumerWidget {
             children: [
               Center(
                 child: InteractiveViewer(
-                  child: Image.network(url, fit: BoxFit.contain),
+                  child: CachedNetworkImage(
+                    imageUrl: url,
+                    fit: BoxFit.contain,
+                    placeholder: (_, __) => const Center(
+                      child: CircularProgressIndicator(color: AppColors.accent),
+                    ),
+                    errorWidget: (_, __, ___) => const Icon(
+                      LucideIcons.image,
+                      color: Colors.white54,
+                      size: 48,
+                    ),
+                  ),
                 ),
               ),
               SafeArea(

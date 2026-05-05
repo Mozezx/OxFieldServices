@@ -25,51 +25,51 @@ class DefaultFirebaseOptions {
     }
   }
 
-  static FirebaseOptions android = FirebaseOptions(
-    apiKey: const String.fromEnvironment(
+  static const FirebaseOptions android = FirebaseOptions(
+    apiKey: String.fromEnvironment(
       'FIREBASE_ANDROID_API_KEY',
       defaultValue: 'AIzaSyDQOx8LnLmnVNmChQV9_iGFWlhIlkucOtM',
     ),
-    appId: const String.fromEnvironment(
+    appId: String.fromEnvironment(
       'FIREBASE_ANDROID_APP_ID',
       defaultValue: '1:420140898358:android:6fd96fadc36c10b602e097',
     ),
-    messagingSenderId: const String.fromEnvironment(
+    messagingSenderId: String.fromEnvironment(
       'FIREBASE_MESSAGING_SENDER_ID',
       defaultValue: '420140898358',
     ),
-    projectId: const String.fromEnvironment(
+    projectId: String.fromEnvironment(
       'FIREBASE_PROJECT_ID',
       defaultValue: 'ox-field-services',
     ),
-    storageBucket: const String.fromEnvironment(
+    storageBucket: String.fromEnvironment(
       'FIREBASE_STORAGE_BUCKET',
       defaultValue: 'ox-field-services.firebasestorage.app',
     ),
   );
 
-  static FirebaseOptions ios = FirebaseOptions(
-    apiKey: const String.fromEnvironment(
+  static const FirebaseOptions ios = FirebaseOptions(
+    apiKey: String.fromEnvironment(
       'FIREBASE_IOS_API_KEY',
       defaultValue: 'AIzaSyBTnR9rJDoYvdURrakJrLNQAfLnSMVAriM',
     ),
-    appId: const String.fromEnvironment(
+    appId: String.fromEnvironment(
       'FIREBASE_IOS_APP_ID',
       defaultValue: '1:420140898358:ios:eea5e5cf8cb1748802e097',
     ),
-    messagingSenderId: const String.fromEnvironment(
+    messagingSenderId: String.fromEnvironment(
       'FIREBASE_MESSAGING_SENDER_ID',
       defaultValue: '420140898358',
     ),
-    projectId: const String.fromEnvironment(
+    projectId: String.fromEnvironment(
       'FIREBASE_PROJECT_ID',
       defaultValue: 'ox-field-services',
     ),
-    storageBucket: const String.fromEnvironment(
+    storageBucket: String.fromEnvironment(
       'FIREBASE_STORAGE_BUCKET',
       defaultValue: 'ox-field-services.firebasestorage.app',
     ),
-    iosBundleId: const String.fromEnvironment(
+    iosBundleId: String.fromEnvironment(
       'FIREBASE_IOS_BUNDLE_ID',
       defaultValue: 'com.oxfieldservices.oxAppWorker',
     ),

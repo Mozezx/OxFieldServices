@@ -57,7 +57,7 @@ export class MatchingService {
         ],
       },
       include: {
-        user: { select: { id: true, name: true, email: true } },
+        user: { select: { id: true, name: true, email: true, avatarUrl: true } },
       },
       orderBy: { rating: 'desc' },
       take: MAX_CANDIDATES,

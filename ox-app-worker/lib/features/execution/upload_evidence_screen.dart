@@ -7,6 +7,7 @@ import 'package:lucide_flutter/lucide_flutter.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_gradients.dart';
 import '../../core/widgets/ox_button.dart';
+import '../../l10n/app_localizations.dart';
 import 'execution_provider.dart';
 
 class UploadEvidenceScreen extends ConsumerStatefulWidget {
@@ -58,9 +59,10 @@ class _UploadEvidenceScreenState extends ConsumerState<UploadEvidenceScreen> {
             .uploadEvidence(widget.phaseId, file.path, mimeType);
       }
       if (mounted) {
+        final t = AppLocalizations.of(context)!;
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Evidencias enviadas com sucesso!'),
+          SnackBar(
+            content: Text(t.uploadSuccess),
             backgroundColor: AppColors.accent,
           ),
         );
@@ -68,9 +70,10 @@ class _UploadEvidenceScreenState extends ConsumerState<UploadEvidenceScreen> {
       }
     } catch (e) {
       if (mounted) {
+        final t = AppLocalizations.of(context)!;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Erro no upload: $e'),
+            content: Text(t.uploadError(e.toString())),
             backgroundColor: AppColors.error,
           ),
         );
@@ -82,13 +85,14 @@ class _UploadEvidenceScreenState extends ConsumerState<UploadEvidenceScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final t = AppLocalizations.of(context)!;
     return Scaffold(
-      backgroundColor: AppColors.primary,
+      backgroundColor: AppColors.appBackground,
       appBar: AppBar(
         backgroundColor: AppColors.primary,
         elevation: 0,
         title: Text(
-          'Evidencias (${_selectedFiles.length}/3)',
+          t.uploadTitle(_selectedFiles.length),
           style: const TextStyle(
             color: AppColors.textPrimary,
             fontFamily: 'Inter',
@@ -109,25 +113,25 @@ class _UploadEvidenceScreenState extends ConsumerState<UploadEvidenceScreen> {
                 ? Container(
                     decoration: const BoxDecoration(
                         gradient: AppGradients.surface),
-                    child: const Center(
+                    child: Center(
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Icon(LucideIcons.camera,
+                          const Icon(LucideIcons.camera,
                               color: AppColors.textDisabled, size: 64),
-                          SizedBox(height: 16),
+                          const SizedBox(height: 16),
                           Text(
-                            'Nenhuma foto selecionada',
-                            style: TextStyle(
+                            t.uploadNoPhoto,
+                            style: const TextStyle(
                               color: AppColors.textSecondary,
                               fontFamily: 'Inter',
                               fontSize: 16,
                             ),
                           ),
-                          SizedBox(height: 8),
+                          const SizedBox(height: 8),
                           Text(
-                            'Minimo 3 fotos para enviar a fase',
-                            style: TextStyle(
+                            t.uploadMinPhotos,
+                            style: const TextStyle(
                               color: AppColors.textDisabled,
                               fontFamily: 'Inter',
                               fontSize: 13,
@@ -194,7 +198,7 @@ class _UploadEvidenceScreenState extends ConsumerState<UploadEvidenceScreen> {
                       child: OutlinedButton.icon(
                         onPressed: () => _pickImage(ImageSource.camera),
                         icon: const Icon(LucideIcons.camera, size: 18),
-                        label: const Text('Tirar foto'),
+                        label: Text(t.uploadTakePhoto),
                         style: OutlinedButton.styleFrom(
                           foregroundColor: AppColors.textPrimary,
                           side: const BorderSide(color: AppColors.divider),
@@ -207,7 +211,7 @@ class _UploadEvidenceScreenState extends ConsumerState<UploadEvidenceScreen> {
                       child: OutlinedButton.icon(
                         onPressed: () => _pickImage(ImageSource.gallery),
                         icon: const Icon(LucideIcons.image, size: 18),
-                        label: const Text('Da galeria'),
+                        label: Text(t.uploadFromGallery),
                         style: OutlinedButton.styleFrom(
                           foregroundColor: AppColors.textPrimary,
                           side: const BorderSide(color: AppColors.divider),
@@ -220,8 +224,8 @@ class _UploadEvidenceScreenState extends ConsumerState<UploadEvidenceScreen> {
                 const SizedBox(height: 12),
                 OxButton(
                   label: _isUploading
-                      ? 'Enviando...'
-                      : 'Confirmar (${_selectedFiles.length} arquivo${_selectedFiles.length != 1 ? 's' : ''})',
+                      ? t.uploadUploading
+                      : t.uploadConfirmButton(_selectedFiles.length),
                   icon: LucideIcons.upload,
                   isLoading: _isUploading,
                   onPressed:

@@ -67,4 +67,12 @@ export class WorkersController {
   findOne(@Param('id') id: string) {
     return this.workersService.findOne(id);
   }
+
+  @Patch(':id')
+  @UseGuards(RolesGuard)
+  @Roles('admin')
+  @ApiOperation({ summary: 'Atualizar worker por ID (admin)' })
+  updateById(@Param('id') id: string, @Body() dto: UpdateWorkerDto) {
+    return this.workersService.updateById(id, dto);
+  }
 }

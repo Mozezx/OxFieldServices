@@ -1,14 +1,17 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lucide_flutter/lucide_flutter.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../../core/widgets/profile_avatar.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/widgets/ox_app_bar.dart';
+import '../auth/auth_me_provider.dart';
 import '../../core/widgets/ox_empty_state.dart';
 import '../../core/widgets/ox_loading.dart';
 import 'project_provider.dart';
 import 'widgets/project_card.dart';
+import '../../l10n/app_localizations.dart';
 
 final _filterProvider = StateProvider<String>((ref) => 'all');
 
@@ -17,10 +20,17 @@ class ProjectsListScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final l = AppLocalizations.of(context)!;
     final projectsAsync = ref.watch(projectsProvider);
     final filter = ref.watch(_filterProvider);
+    final me = ref.watch(authMeProvider).valueOrNull;
     final user = Supabase.instance.client.auth.currentUser;
-    final name = user?.email?.split('@').first ?? 'Usuário';
+    final label = (me?.name.isNotEmpty == true
+            ? me!.name
+            : me?.email.isNotEmpty == true
+                ? me!.email
+                : user?.email) ??
+        'Usuário';
 
     return Scaffold(
       appBar: OxAppBar(
@@ -28,22 +38,15 @@ class ProjectsListScreen extends ConsumerWidget {
         actions: [
           Padding(
             padding: const EdgeInsets.only(right: 8),
-            child: CircleAvatar(
-              radius: 16,
-              backgroundColor: AppColors.accent.withValues(alpha: 0.15),
-              child: Text(
-                name.substring(0, 1).toUpperCase(),
-                style: const TextStyle(
-                  color: AppColors.accent,
-                  fontWeight: FontWeight.w700,
-                  fontSize: 13,
-                  fontFamily: 'Inter',
-                ),
-              ),
+            child: ProfileAvatar(
+              radius: 20,
+              imageUrl: me?.avatarUrl,
+              label: label,
+              onTap: () => context.go('/profile'),
             ),
           ),
           IconButton(
-            icon: const Icon(LucideIcons.bell, size: 20),
+            icon: const Icon(LucideIcons.bell, size: 24),
             color: AppColors.textSecondary,
             onPressed: () => context.push('/notifications'),
           ),
@@ -56,81 +59,99 @@ class ProjectsListScreen extends ConsumerWidget {
           separatorBuilder: (_, __) => const SizedBox(height: 12),
           itemBuilder: (_, __) => const OxProjectCardSkeleton(),
         ),
-        error: (e, _) => const Center(
-          child: Text(
-            'Erro ao carregar projetos',
-            style: TextStyle(color: AppColors.error, fontFamily: 'Inter'),
-          ),
+        error: (_, __) => _ProjectsListBody(
+          projects: const [],
+          filter: filter,
         ),
-        data: (projects) {
-          final filtered = filter == 'all'
-              ? projects
-              : filter == 'active'
-                  ? projects.where((p) => [
-                        'in_execution',
-                        'active_escrow',
-                        'contract_signed',
-                        'matched',
-                        'in_validation',
-                      ].contains(p.status)).toList()
-                  : projects.where((p) => p.status == 'closed').toList();
-
-          return Column(
-            children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'Meus Projetos',
-                      style: TextStyle(
-                        color: AppColors.textPrimary,
-                        fontSize: 22,
-                        fontWeight: FontWeight.w700,
-                        fontFamily: 'Inter',
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      '${projects.where((p) => p.status != 'closed').length} projetos ativos',
-                      style: const TextStyle(
-                        color: AppColors.textSecondary,
-                        fontSize: 13,
-                        fontFamily: 'Inter',
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    _FilterChips(selected: filter),
-                  ],
-                ),
-              ),
-              Expanded(
-                child: filtered.isEmpty
-                    ? OxEmptyState(
-                        icon: LucideIcons.folderOpen,
-                        title: 'Nenhum projeto ainda',
-                        subtitle: 'Crie seu primeiro projeto para encontrar um profissional.',
-                        ctaLabel: 'Criar projeto',
-                        onCta: () => context.push('/projects/new'),
-                      )
-                    : ListView.separated(
-                        padding: const EdgeInsets.all(24),
-                        itemCount: filtered.length,
-                        separatorBuilder: (_, __) => const SizedBox(height: 12),
-                        itemBuilder: (_, i) => ProjectCard(project: filtered[i]),
-                      ),
-              ),
-            ],
-          );
-        },
+        data: (projects) => _ProjectsListBody(
+          projects: projects,
+          filter: filter,
+        ),
       ),
       floatingActionButton: FloatingActionButton(
-        onPressed: () => context.push('/projects/new'),
+        onPressed: () => context.push('/redeem'),
         backgroundColor: AppColors.accent,
         foregroundColor: AppColors.primary,
-        child: const Icon(LucideIcons.plus, size: 28),
+        tooltip: l.redeemAddByLink,
+        child: const Icon(LucideIcons.link, size: 24),
       ),
+    );
+  }
+}
+
+class _ProjectsListBody extends ConsumerWidget {
+  const _ProjectsListBody({
+    required this.projects,
+    required this.filter,
+  });
+
+  final List<ProjectModel> projects;
+  final String filter;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final l = AppLocalizations.of(context)!;
+    final filtered = filter == 'all'
+        ? projects
+        : filter == 'active'
+            ? projects
+                .where((p) => [
+                      'in_execution',
+                      'active_escrow',
+                      'contract_signed',
+                      'matched',
+                    ].contains(p.status))
+                .toList()
+            : projects.where((p) => p.status == 'closed').toList();
+
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                l.projectsTitle,
+                style: const TextStyle(
+                  color: AppColors.textPrimary,
+                  fontSize: 22,
+                  fontWeight: FontWeight.w700,
+                  fontFamily: 'Inter',
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                l.projectsActive(
+                    projects.where((p) => p.status != 'closed').length),
+                style: const TextStyle(
+                  color: AppColors.textSecondary,
+                  fontSize: 13,
+                  fontFamily: 'Inter',
+                ),
+              ),
+              const SizedBox(height: 16),
+              _FilterChips(selected: filter),
+            ],
+          ),
+        ),
+        Expanded(
+          child: filtered.isEmpty
+              ? OxEmptyState(
+                  icon: LucideIcons.folderOpen,
+                  title: l.projectsEmpty,
+                  subtitle: l.projectsEmptySubtitle,
+                  ctaLabel: l.redeemAddByLink,
+                  onCta: () => context.push('/redeem'),
+                )
+              : ListView.separated(
+                  padding: const EdgeInsets.all(24),
+                  itemCount: filtered.length,
+                  separatorBuilder: (_, __) => const SizedBox(height: 12),
+                  itemBuilder: (_, i) => ProjectCard(project: filtered[i]),
+                ),
+        ),
+      ],
     );
   }
 }
@@ -142,10 +163,11 @@ class _FilterChips extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final l = AppLocalizations.of(context)!;
     final options = [
-      ('all', 'Todos'),
-      ('active', 'Ativos'),
-      ('closed', 'Fechados'),
+      ('all', l.projectsFilterAll),
+      ('active', l.projectsFilterActive),
+      ('closed', l.projectsFilterClosed),
     ];
 
     return Row(

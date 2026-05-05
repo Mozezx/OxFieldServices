@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
@@ -8,15 +8,17 @@ import '../../core/widgets/ox_app_bar.dart';
 import '../../core/widgets/ox_badge.dart';
 import '../../core/widgets/ox_button.dart';
 import 'project_provider.dart';
+import '../../l10n/app_localizations.dart';
 
-String _phaseStatusLabel(String status) {
+String _phaseStatusLabel(BuildContext context, String status) {
+  final l = AppLocalizations.of(context)!;
   switch (status) {
-    case 'validated': return 'Validada';
-    case 'under_review': return 'Em revisão';
-    case 'evidence_uploaded': return 'Evidências enviadas';
-    case 'in_progress': return 'Em execução';
-    case 'rejected': return 'Rejeitada';
-    default: return 'Pendente';
+    case 'validated': return l.phaseStatusValidated;
+    case 'under_review': return l.phaseStatusUnderReview;
+    case 'evidence_uploaded': return l.phaseStatusEvidenceUploaded;
+    case 'in_progress': return l.phaseStatusInProgress;
+    case 'rejected': return l.phaseStatusRejected;
+    default: return l.phaseStatusPending;
   }
 }
 
@@ -41,35 +43,27 @@ class ProjectDetailScreen extends ConsumerStatefulWidget {
 }
 
 class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
-  bool _isSubmitting = false;
-
-  Future<void> _submitForValidation() async {
-    setState(() => _isSubmitting = true);
-    await ref.read(projectsNotifierProvider.notifier).submitForValidation(widget.projectId);
-    if (!mounted) return;
-    final notifierState = ref.read(projectsNotifierProvider);
-    if (notifierState.hasError) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Erro ao enviar: ${notifierState.error}'),
-          backgroundColor: AppColors.error,
-        ),
-      );
-    } else {
-      ref.invalidate(projectDetailProvider(widget.projectId));
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Projeto enviado para validação!')),
-      );
+  String _statusLabel(AppLocalizations l, String status) {
+    switch (status) {
+      case 'draft': return l.statusDraft;
+      case 'in_execution': return l.statusInExecution;
+      case 'closed': return l.statusClosed;
+      case 'matched': return l.statusMatched;
+      case 'contract_signed': return l.statusContractSigned;
+      case 'active_escrow': return l.statusActiveEscrow;
+      case 'closing': return l.statusClosing;
+      case 'rejected': return l.statusRejected;
+      default: return l.statusAwaitingMatch;
     }
-    if (mounted) setState(() => _isSubmitting = false);
   }
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
     final projectAsync = ref.watch(projectDetailProvider(widget.projectId));
 
     return Scaffold(
-      appBar: const OxAppBar(title: 'Detalhes do Projeto'),
+      appBar: OxAppBar(title: l.projectDetailTitle),
       body: projectAsync.when(
         loading: () => const Center(child: CircularProgressIndicator(color: AppColors.accent)),
         error: (e, _) => Center(
@@ -80,7 +74,6 @@ class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Header
               Row(
                 children: [
                   Expanded(
@@ -96,131 +89,19 @@ class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
                   ),
                   const SizedBox(width: 12),
                   OxBadge(
-                    label: _statusLabel(project.status),
+                    label: _statusLabel(l, project.status),
                     status: projectStatusToBadge(project.status),
                   ),
                 ],
               ),
               const SizedBox(height: 24),
 
-              // Info card
               _InfoSection(project: project),
               const SizedBox(height: 24),
 
-              // Draft submit section
-              if (project.status == 'draft') ...[
-                Container(
-                  padding: const EdgeInsets.all(20),
-                  decoration: BoxDecoration(
-                    color: AppColors.surface,
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(
-                      color: AppColors.accent.withValues(alpha: 0.4),
-                    ),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Row(
-                        children: [
-                          Icon(LucideIcons.send, size: 18, color: AppColors.accent),
-                          SizedBox(width: 10),
-                          Text(
-                            'Rascunho salvo',
-                            style: TextStyle(
-                              color: AppColors.textPrimary,
-                              fontWeight: FontWeight.w700,
-                              fontFamily: 'Inter',
-                              fontSize: 16,
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 8),
-                      const Text(
-                        'Este projeto está salvo como rascunho. Envie para validação para iniciar o processo de matching com trabalhadores.',
-                        style: TextStyle(
-                          color: AppColors.textSecondary,
-                          fontSize: 13,
-                          fontFamily: 'Inter',
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                      OxButton(
-                        label: 'Enviar para Validação',
-                        icon: LucideIcons.send,
-                        isLoading: _isSubmitting,
-                        onPressed: _isSubmitting ? null : _submitForValidation,
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 24),
-              ],
-
-              // Worker: assinar contrato
-              if (project.workerNeedsToSign) ...[
-                Container(
-                  padding: const EdgeInsets.all(20),
-                  decoration: BoxDecoration(
-                    color: AppColors.surface,
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(
-                      color: AppColors.accent.withValues(alpha: 0.4),
-                    ),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Row(
-                        children: [
-                          Icon(LucideIcons.filePen, size: 18, color: AppColors.accent),
-                          SizedBox(width: 10),
-                          Text(
-                            'Assinar Contrato',
-                            style: TextStyle(
-                              color: AppColors.textPrimary,
-                              fontWeight: FontWeight.w700,
-                              fontFamily: 'Inter',
-                              fontSize: 16,
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 8),
-                      const Text(
-                        'Assine o contrato para confirmar sua participação neste projeto.',
-                        style: TextStyle(
-                          color: AppColors.textSecondary,
-                          fontSize: 13,
-                          fontFamily: 'Inter',
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                      OxButton(
-                        label: 'Assinar Contrato',
-                        icon: LucideIcons.filePen,
-                        isLoading: _isSubmitting,
-                        onPressed: _isSubmitting
-                            ? null
-                            : () async {
-                                setState(() => _isSubmitting = true);
-                                await ref
-                                    .read(projectsNotifierProvider.notifier)
-                                    .signContract(project.contractId!, widget.projectId);
-                                if (mounted) setState(() => _isSubmitting = false);
-                              },
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 24),
-              ],
-
-              // Phases
-              const Text(
-                'FASES',
-                style: TextStyle(
+              Text(
+                l.projectDetailPhasesSection,
+                style: const TextStyle(
                   color: AppColors.textSecondary,
                   fontSize: 12,
                   fontWeight: FontWeight.w600,
@@ -229,15 +110,26 @@ class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
                 ),
               ),
               const SizedBox(height: 12),
-              ...project.phases.map((phase) => _PhaseItem(
-                    phase: phase,
-                    onTap: () => context.push('/phases/${phase.id}'),
-                    onValidate: ['under_review', 'evidence_uploaded'].contains(phase.status)
-                        ? () => context.push('/phases/${phase.id}/validate')
-                        : null,
-                  )),
+              ...project.phases.map((phase) {
+                final canValidate = ['under_review', 'evidence_uploaded'].contains(phase.status);
+                return _PhaseItem(
+                  phase: phase,
+                  onTap: () => context.push(
+                    canValidate ? '/phases/${phase.id}/validate' : '/phases/${phase.id}',
+                  ),
+                  onValidate: canValidate ? () => context.push('/phases/${phase.id}/validate') : null,
+                );
+              }),
 
               const SizedBox(height: 24),
+
+              if (project.canRateWorker) ...[
+                _RateWorkerPanel(projectId: widget.projectId),
+                const SizedBox(height: 24),
+              ] else if (project.myRating != null) ...[
+                _RatedWorkerSummary(rating: project.myRating!),
+                const SizedBox(height: 24),
+              ],
 
               if (project.needsPayment) ...[
                 Container(
@@ -245,21 +137,18 @@ class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
                   decoration: BoxDecoration(
                     color: AppColors.surface,
                     borderRadius: BorderRadius.circular(16),
-                    border: Border.all(
-                      color: AppColors.accent.withValues(alpha: 0.4),
-                    ),
+                    border: Border.all(color: AppColors.accent.withValues(alpha: 0.4)),
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Row(
+                      Row(
                         children: [
-                          Icon(LucideIcons.lock,
-                              size: 18, color: AppColors.accent),
-                          SizedBox(width: 10),
+                          const Icon(LucideIcons.lock, size: 18, color: AppColors.accent),
+                          const SizedBox(width: 10),
                           Text(
-                            'Pagamento necessário',
-                            style: TextStyle(
+                            l.projectPaymentRequired,
+                            style: const TextStyle(
                               color: AppColors.textPrimary,
                               fontWeight: FontWeight.w700,
                               fontFamily: 'Inter',
@@ -269,9 +158,9 @@ class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
                         ],
                       ),
                       const SizedBox(height: 8),
-                      const Text(
-                        'O trabalhador foi designado e aguarda o início. Pague para liberar a execução das fases.',
-                        style: TextStyle(
+                      Text(
+                        l.projectPaymentRequiredDescription,
+                        style: const TextStyle(
                           color: AppColors.textSecondary,
                           fontSize: 13,
                           fontFamily: 'Inter',
@@ -279,10 +168,19 @@ class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
                       ),
                       const SizedBox(height: 16),
                       OxButton(
-                        label: 'Pagar e Iniciar Projeto',
+                        label: l.projectPayButton,
                         icon: LucideIcons.creditCard,
-                        onPressed: () =>
-                            context.push('/payments/${project.contractId}'),
+                        onPressed: () {
+                          final pid = widget.projectId;
+                          context
+                              .push<String?>(
+                                '/payments/${project.contractId}?projectId=${project.id}',
+                              )
+                              .then((_) {
+                            if (!context.mounted) return;
+                            ref.invalidate(projectDetailProvider(pid));
+                          });
+                        },
                       ),
                     ],
                   ),
@@ -290,28 +188,12 @@ class _ProjectDetailScreenState extends ConsumerState<ProjectDetailScreen> {
                 const SizedBox(height: 24),
               ],
 
-              // Payment section
               _PaymentSection(project: project),
             ],
           ),
         ),
       ),
     );
-  }
-
-  String _statusLabel(String status) {
-    switch (status) {
-      case 'draft': return 'Rascunho';
-      case 'in_validation': return 'Em Validação';
-      case 'in_execution': return 'Em Execução';
-      case 'closed': return 'Concluído';
-      case 'matched': return 'Match feito';
-      case 'contract_signed': return 'Contrato assinado';
-      case 'active_escrow': return 'Escrow ativo';
-      case 'closing': return 'Encerrando';
-      case 'rejected': return 'Rejeitado';
-      default: return 'Aguardando match';
-    }
   }
 }
 
@@ -321,6 +203,7 @@ class _InfoSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
     final fmt = DateFormat('dd/MM/yyyy');
     return Container(
       padding: const EdgeInsets.all(20),
@@ -332,9 +215,9 @@ class _InfoSection extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'INFORMAÇÕES',
-            style: TextStyle(
+          Text(
+            l.projectDetailInfoSection,
+            style: const TextStyle(
               color: AppColors.textSecondary,
               fontSize: 12,
               fontWeight: FontWeight.w600,
@@ -344,19 +227,19 @@ class _InfoSection extends StatelessWidget {
           ),
           const SizedBox(height: 16),
           if (project.workerName != null)
-            _InfoRow(icon: LucideIcons.user, label: 'Trabalhador', value: project.workerName!),
+            _InfoRow(icon: LucideIcons.user, label: l.projectDetailWorker, value: project.workerName!),
           _InfoRow(
             icon: LucideIcons.euro,
-            label: 'Valor Total',
+            label: l.projectDetailBudget,
             value: '€ ${project.budget.toStringAsFixed(2)}',
           ),
           if (project.deadline != null)
             _InfoRow(
               icon: LucideIcons.calendar,
-              label: 'Prazo',
+              label: l.projectDetailDeadline,
               value: fmt.format(project.deadline!),
             ),
-          _InfoRow(icon: LucideIcons.mapPin, label: 'Local', value: project.location),
+          _InfoRow(icon: LucideIcons.mapPin, label: l.projectDetailLocation, value: project.location),
         ],
       ),
     );
@@ -408,6 +291,7 @@ class _PhaseItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
     final isActive = ['under_review', 'evidence_uploaded', 'in_progress'].contains(phase.status);
 
     return GestureDetector(
@@ -431,7 +315,7 @@ class _PhaseItem extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Fase ${phase.order} — ${phase.name}',
+                    l.projectPhaseLabel(phase.order, phase.name),
                     style: const TextStyle(
                       color: AppColors.textPrimary,
                       fontSize: 14,
@@ -441,7 +325,7 @@ class _PhaseItem extends StatelessWidget {
                   ),
                   const SizedBox(height: 4),
                   OxBadge(
-                    label: _phaseStatusLabel(phase.status),
+                    label: _phaseStatusLabel(context, phase.status),
                     status: _phaseBadge(phase.status),
                   ),
                 ],
@@ -451,9 +335,9 @@ class _PhaseItem extends StatelessWidget {
               TextButton(
                 onPressed: onValidate,
                 style: TextButton.styleFrom(foregroundColor: AppColors.accent),
-                child: const Text(
-                  'Validar',
-                  style: TextStyle(fontSize: 13, fontFamily: 'Inter'),
+                child: Text(
+                  l.phaseValidateButton,
+                  style: const TextStyle(fontSize: 13, fontFamily: 'Inter'),
                 ),
               ),
           ],
@@ -485,12 +369,199 @@ class _PhaseIcon extends StatelessWidget {
   }
 }
 
+class _RateWorkerPanel extends ConsumerStatefulWidget {
+  const _RateWorkerPanel({required this.projectId});
+
+  final String projectId;
+
+  @override
+  ConsumerState<_RateWorkerPanel> createState() => _RateWorkerPanelState();
+}
+
+class _RateWorkerPanelState extends ConsumerState<_RateWorkerPanel> {
+  int _score = 5;
+  final _feedbackCtrl = TextEditingController();
+  bool _submitting = false;
+
+  @override
+  void dispose() {
+    _feedbackCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _submit(AppLocalizations l) async {
+    if (_submitting) return;
+    setState(() => _submitting = true);
+    try {
+      await submitProjectRating(
+        ref,
+        projectId: widget.projectId,
+        score: _score,
+        feedback: _feedbackCtrl.text,
+      );
+    } catch (e, _) {
+      final msg = dioErrorUserMessage(e) ?? e.toString();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(l.projectRateWorkerError(msg))),
+      );
+    } finally {
+      if (mounted) setState(() => _submitting = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.warning.withValues(alpha: 0.35)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            l.projectRateWorkerSection,
+            style: const TextStyle(
+              color: AppColors.textSecondary,
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              letterSpacing: 1.2,
+              fontFamily: 'Inter',
+            ),
+          ),
+          const SizedBox(height: 12),
+          Text(
+            l.projectRateWorkerSubtitle,
+            style: const TextStyle(
+              color: AppColors.textPrimary,
+              fontSize: 15,
+              fontWeight: FontWeight.w600,
+              fontFamily: 'Inter',
+            ),
+          ),
+          const SizedBox(height: 16),
+          Row(
+            children: List.generate(5, (i) {
+              final n = i + 1;
+              final filled = n <= _score;
+              return IconButton(
+                onPressed: _submitting
+                    ? null
+                    : () => setState(() => _score = n),
+                icon: Icon(
+                  LucideIcons.star,
+                  color: filled ? AppColors.warning : AppColors.textDisabled,
+                ),
+              );
+            }),
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: _feedbackCtrl,
+            maxLines: 3,
+            enabled: !_submitting,
+            style: const TextStyle(color: AppColors.textPrimary, fontFamily: 'Inter', fontSize: 14),
+            decoration: InputDecoration(
+              labelText: l.projectRateWorkerFeedbackLabel,
+              labelStyle: const TextStyle(color: AppColors.textSecondary, fontFamily: 'Inter'),
+              filled: true,
+              fillColor: AppColors.surface2,
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+            ),
+          ),
+          const SizedBox(height: 16),
+          OxButton(
+            label: l.projectRateWorkerSubmit,
+            icon: LucideIcons.send,
+            isLoading: _submitting,
+            onPressed: _submitting ? null : () => _submit(l),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _RatedWorkerSummary extends StatelessWidget {
+  const _RatedWorkerSummary({required this.rating});
+
+  final ClientRating rating;
+
+  @override
+  Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.divider),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            l.projectRateWorkerSection,
+            style: const TextStyle(
+              color: AppColors.textSecondary,
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              letterSpacing: 1.2,
+              fontFamily: 'Inter',
+            ),
+          ),
+          const SizedBox(height: 12),
+          Text(
+            l.projectRateWorkerThanks,
+            style: const TextStyle(
+              color: AppColors.textPrimary,
+              fontSize: 15,
+              fontWeight: FontWeight.w600,
+              fontFamily: 'Inter',
+            ),
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              ...List.generate(5, (i) {
+                final n = i + 1;
+                return Icon(
+                  LucideIcons.star,
+                  size: 20,
+                  color: n <= rating.score ? AppColors.warning : AppColors.textDisabled,
+                );
+              }),
+              const SizedBox(width: 8),
+              Text(
+                l.projectRateWorkerYourScore(rating.score),
+                style: const TextStyle(color: AppColors.textSecondary, fontSize: 13, fontFamily: 'Inter'),
+              ),
+            ],
+          ),
+          if (rating.feedback != null && rating.feedback!.trim().isNotEmpty) ...[
+            const SizedBox(height: 12),
+            Text(
+              rating.feedback!.trim(),
+              style: const TextStyle(color: AppColors.textSecondary, fontSize: 14, fontFamily: 'Inter'),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
 class _PaymentSection extends StatelessWidget {
   const _PaymentSection({required this.project});
   final ProjectModel project;
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
     final validatedAmount = project.phases
         .where((p) => p.status == 'validated')
         .fold(0.0, (sum, p) => sum + p.amount);
@@ -505,9 +576,9 @@ class _PaymentSection extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'PAGAMENTO',
-            style: TextStyle(
+          Text(
+            l.projectDetailPaymentSection,
+            style: const TextStyle(
               color: AppColors.textSecondary,
               fontSize: 12,
               fontWeight: FontWeight.w600,
@@ -518,20 +589,20 @@ class _PaymentSection extends StatelessWidget {
           const SizedBox(height: 16),
           _InfoRow(
             icon: LucideIcons.lock,
-            label: 'Escrow',
-            value: '€ ${project.budget.toStringAsFixed(2)} bloqueado',
+            label: l.projectEscrowLabel,
+            value: l.projectEscrowValue(project.budget.toStringAsFixed(2)),
           ),
           _InfoRow(
             icon: LucideIcons.checkCircle2,
-            label: 'Liberado',
+            label: l.projectReleasedLabel,
             value: '€ ${validatedAmount.toStringAsFixed(2)}',
           ),
           const SizedBox(height: 8),
           GestureDetector(
             onTap: () {},
-            child: const Text(
-               'Ver detalhes financeiros →',
-              style: TextStyle(
+            child: Text(
+              l.projectViewFinancials,
+              style: const TextStyle(
                 color: AppColors.accent,
                 fontSize: 13,
                 fontWeight: FontWeight.w600,

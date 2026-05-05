@@ -30,28 +30,50 @@ export class NotificationsListeners {
   }
 
   @OnEvent('project.created')
-  async onProjectCreated(payload: { projectId: string; clientId: string }) {
+  async onProjectCreated(payload: {
+    projectId: string;
+    clientId: string;
+    createdByAdmin?: boolean;
+  }) {
     try {
       const project = await this.prisma.project.findUnique({
         where: { id: payload.projectId },
-        select: { title: true },
+        select: { title: true, client: { select: { name: true } } },
       });
-      const title = project?.title ?? 'Projeto';
+      const projectTitle = project?.title ?? 'Projeto';
+      const clientName = project?.client?.name ?? 'cliente';
       const admins = await this.notifications.getAdminUserIds();
+
+      const clientBody = payload.createdByAdmin
+        ? `A obra "${projectTitle}" foi registada na sua conta. Acompanhe as fases e finalize o pagamento pelo app.`
+        : `O projeto "${projectTitle}" foi criado.`;
+
       await this.notifications.create({
         userId: payload.clientId,
         type: 'project_created',
-        title: 'Projeto criado',
-        body: `O projeto "${title}" foi criado.`,
+        title: payload.createdByAdmin ? 'Nova obra disponível' : 'Projeto criado',
+        body: clientBody,
         entityType: 'project',
         entityId: payload.projectId,
+        data: { projectTitle, createdByAdmin: payload.createdByAdmin ?? false },
       });
+
+      const adminBody = payload.createdByAdmin
+        ? `Obra "${projectTitle}" registada para ${clientName}.`
+        : `Cliente criou o projeto "${projectTitle}".`;
+
       await this.notifications.createForUsers(admins, {
         type: 'project_created',
-        title: 'Novo projeto',
-        body: `Cliente criou o projeto "${title}".`,
+        title: 'Nova obra',
+        body: adminBody,
         entityType: 'project',
         entityId: payload.projectId,
+        data: {
+          projectTitle,
+          variant: 'admin',
+          clientName,
+          createdByAdmin: payload.createdByAdmin ?? false,
+        },
       });
     } catch (e) {
       this.logger.warn(`project.created listener: ${String(e)}`);
@@ -84,8 +106,8 @@ export class NotificationsListeners {
 
       const workerUserId = project.contract?.worker?.userId;
       const admins = await this.notifications.getAdminUserIds();
-      const titleText = project.title;
-      const { title, body } = this.projectStatusMessage(mapped, titleText);
+      const projectTitle = project.title;
+      const { title, body } = this.projectStatusMessage(mapped, projectTitle);
 
       const recipients = new Set<string>();
       recipients.add(project.clientId);
@@ -101,7 +123,7 @@ export class NotificationsListeners {
             body,
             entityType: 'project',
             entityId: payload.projectId,
-            data: { from: payload.from, to: payload.to },
+            data: { from: payload.from, to: payload.to, projectTitle },
           },
         );
         return;
@@ -113,7 +135,7 @@ export class NotificationsListeners {
         body,
         entityType: 'project',
         entityId: payload.projectId,
-        data: { from: payload.from, to: payload.to },
+        data: { from: payload.from, to: payload.to, projectTitle },
       });
     } catch (e) {
       this.logger.warn(`project.status_changed listener: ${String(e)}`);
@@ -138,6 +160,7 @@ export class NotificationsListeners {
         body: `A fase "${phase.name}" do projeto "${phase.project.title}" foi iniciada.`,
         entityType: 'phase',
         entityId: payload.phaseId,
+        data: { phaseName: phase.name, projectTitle: phase.project.title },
       });
     } catch (e) {
       this.logger.warn(`phase.started listener: ${String(e)}`);
@@ -157,6 +180,7 @@ export class NotificationsListeners {
         body: `O trabalhador enviou evidências para a fase "${phase.name}" em "${phase.project.title}".`,
         entityType: 'phase',
         entityId: payload.phaseId,
+        data: { phaseName: phase.name, projectTitle: phase.project.title },
       });
       await this.notifications.createForUsers(admins, {
         type: 'phase_evidence_uploaded',
@@ -164,6 +188,7 @@ export class NotificationsListeners {
         body: `Projeto "${phase.project.title}" — fase "${phase.name}".`,
         entityType: 'phase',
         entityId: payload.phaseId,
+        data: { phaseName: phase.name, projectTitle: phase.project.title, variant: 'admin' },
       });
     } catch (e) {
       this.logger.warn(`phase.evidence_uploaded listener: ${String(e)}`);
@@ -182,6 +207,7 @@ export class NotificationsListeners {
         body: `A fase "${phase.name}" de "${phase.project.title}" está aguardando sua validação.`,
         entityType: 'phase',
         entityId: payload.phaseId,
+        data: { phaseName: phase.name, projectTitle: phase.project.title },
       });
     } catch (e) {
       this.logger.warn(`phase.under_review listener: ${String(e)}`);
@@ -222,7 +248,7 @@ export class NotificationsListeners {
         body: `A fase ${phase.name} do projeto ${phase.project.title} foi validada.`,
         entityType: 'phase',
         entityId: payload.phaseId,
-        data: { projectId: phase.project.id },
+        data: { projectId: phase.project.id, phaseName: phase.name, projectTitle: phase.project.title },
       });
 
       if (workerUserId) {
@@ -233,7 +259,7 @@ export class NotificationsListeners {
           body: `Sua fase ${phase.name} foi aprovada no projeto ${phase.project.title}.`,
           entityType: 'phase',
           entityId: payload.phaseId,
-          data: { projectId: phase.project.id },
+          data: { projectId: phase.project.id, phaseName: phase.name, projectTitle: phase.project.title, variant: 'worker' },
         });
       }
     } catch (e) {
@@ -275,7 +301,7 @@ export class NotificationsListeners {
           body: `A fase ${phase.name} do projeto ${phase.project.title} foi rejeitada e precisa de ajustes.`,
           entityType: 'phase',
           entityId: payload.phaseId,
-          data: { projectId: phase.project.id },
+          data: { projectId: phase.project.id, phaseName: phase.name, projectTitle: phase.project.title, variant: 'worker' },
         });
       }
 
@@ -286,7 +312,7 @@ export class NotificationsListeners {
         body: `A fase ${phase.name} foi marcada como rejeitada no projeto ${phase.project.title}.`,
         entityType: 'phase',
         entityId: payload.phaseId,
-        data: { projectId: phase.project.id },
+        data: { projectId: phase.project.id, phaseName: phase.name, projectTitle: phase.project.title },
       });
     } catch (e) {
       this.logger.warn(`phase.rejected notification: ${String(e)}`);
@@ -309,14 +335,15 @@ export class NotificationsListeners {
         select: { title: true },
       });
       if (!worker) return;
+      const projectTitle = project?.title ?? 'Projeto';
       await this.notifications.create({
         userId: worker.userId,
         type: 'contract_created',
         title: 'Novo contrato',
-        body: `Você foi atribuído ao projeto "${project?.title ?? 'Projeto'}". Assine o contrato para continuar.`,
+        body: `Você foi atribuído ao projeto "${projectTitle}". Assine o contrato para continuar.`,
         entityType: 'contract',
         entityId: payload.contractId,
-        data: { projectId: payload.projectId },
+        data: { projectId: payload.projectId, projectTitle },
       });
     } catch (e) {
       this.logger.warn(`contract.created listener: ${String(e)}`);
@@ -335,13 +362,15 @@ export class NotificationsListeners {
         select: { title: true },
       });
       if (!worker) return;
+      const projectTitle = project?.title ?? 'Projeto';
       await this.notifications.create({
         userId: worker.userId,
         type: 'worker_invited',
         title: 'Convite para projeto',
-        body: `Você foi selecionado para o projeto "${project?.title ?? 'Projeto'}".`,
+        body: `Você foi selecionado para o projeto "${projectTitle}".`,
         entityType: 'project',
         entityId: payload.projectId,
+        data: { projectTitle },
       });
     } catch (e) {
       this.logger.warn(`worker.invited listener: ${String(e)}`);
@@ -364,14 +393,15 @@ export class NotificationsListeners {
         select: { title: true },
       });
       if (!worker) return;
+      const projectTitle = project?.title ?? 'Projeto';
       await this.notifications.create({
         userId: worker.userId,
         type: 'worker_assigned',
         title: 'Atribuição confirmada',
-        body: `Você está atribuído ao projeto "${project?.title ?? 'Projeto'}".`,
+        body: `Você está atribuído ao projeto "${projectTitle}".`,
         entityType: 'contract',
         entityId: payload.contractId,
-        data: { projectId: payload.projectId },
+        data: { projectId: payload.projectId, projectTitle },
       });
     } catch (e) {
       this.logger.warn(`worker.assigned listener: ${String(e)}`);
@@ -390,34 +420,35 @@ export class NotificationsListeners {
       });
       if (!contract) return;
       const admins = await this.notifications.getAdminUserIds();
+      const projectTitle = contract.project.title;
 
       await this.notifications.create({
         userId: contract.project.clientId,
         type: 'contract_signed',
         title: 'Contrato assinado',
-        body: `O contrato do projeto "${contract.project.title}" foi assinado pelo trabalhador.`,
+        body: `O contrato do projeto "${projectTitle}" foi assinado pelo trabalhador.`,
         entityType: 'contract',
         entityId: payload.contractId,
-        data: { projectId: contract.projectId },
+        data: { projectId: contract.projectId, projectTitle },
       });
 
       await this.notifications.create({
         userId: contract.worker.userId,
         type: 'contract_signed',
         title: 'Contrato assinado',
-        body: `Você assinou o contrato do projeto "${contract.project.title}".`,
+        body: `Você assinou o contrato do projeto "${projectTitle}".`,
         entityType: 'contract',
         entityId: payload.contractId,
-        data: { projectId: contract.projectId },
+        data: { projectId: contract.projectId, projectTitle, variant: 'worker' },
       });
 
       await this.notifications.createForUsers(admins, {
         type: 'contract_signed',
         title: 'Contrato assinado',
-        body: `Projeto "${contract.project.title}" — contrato assinado.`,
+        body: `Projeto "${projectTitle}" — contrato assinado.`,
         entityType: 'contract',
         entityId: payload.contractId,
-        data: { projectId: contract.projectId },
+        data: { projectId: contract.projectId, projectTitle, variant: 'admin' },
       });
     } catch (e) {
       this.logger.warn(`contract.signed listener: ${String(e)}`);
@@ -436,6 +467,7 @@ export class NotificationsListeners {
       });
       if (!contract) return;
       const admins = await this.notifications.getAdminUserIds();
+      const projectTitle = contract.project.title;
       const recipients = [
         contract.project.clientId,
         contract.worker.userId,
@@ -444,10 +476,10 @@ export class NotificationsListeners {
       await this.notifications.createForUsers(recipients, {
         type: 'escrow_held',
         title: 'Pagamento em escrow',
-        body: `O valor do projeto "${contract.project.title}" está retido em escrow.`,
+        body: `O valor do projeto "${projectTitle}" está retido em escrow.`,
         entityType: 'contract',
         entityId: payload.contractId,
-        data: { projectId: contract.projectId },
+        data: { projectId: contract.projectId, projectTitle },
       });
     } catch (e) {
       this.logger.warn(`escrow.held listener: ${String(e)}`);
@@ -465,14 +497,15 @@ export class NotificationsListeners {
   }) {
     try {
       const admins = await this.notifications.getAdminUserIds();
+      const amountStr = payload.amount.toFixed(2);
       await this.notifications.create({
         userId: payload.workerUserId,
         type: 'payment_transferred',
         title: 'Transferência recebida',
-        body: `Foi creditado ${payload.amount.toFixed(2)} no projeto "${payload.projectTitle}".`,
+        body: `Foi creditado ${amountStr} no projeto "${payload.projectTitle}".`,
         entityType: 'payment',
         entityId: payload.paymentId,
-        data: { escrowId: payload.escrowId, phaseId: payload.phaseId },
+        data: { escrowId: payload.escrowId, phaseId: payload.phaseId, projectTitle: payload.projectTitle, amount: amountStr },
       });
       await this.notifications.createForUsers(admins, {
         type: 'payment_transferred',
@@ -480,6 +513,7 @@ export class NotificationsListeners {
         body: `Projeto "${payload.projectTitle}" — transferência ao trabalhador registrada.`,
         entityType: 'payment',
         entityId: payload.paymentId,
+        data: { projectTitle: payload.projectTitle, variant: 'admin' },
       });
     } catch (e) {
       this.logger.warn(`payment.transferred listener: ${String(e)}`);
@@ -508,25 +542,26 @@ export class NotificationsListeners {
 
       const clientId = escrow.contract.project.clientId;
       const workerUserId = escrow.contract.worker.user.id;
+      const projectTitle = escrow.contract.project.title;
 
       await this.notifications.create({
         userId: workerUserId,
         type: 'escrow_released',
         title: 'Pagamento liberado',
-        body: `O pagamento do projeto ${escrow.contract.project.title} foi liberado.`,
+        body: `O pagamento do projeto ${projectTitle} foi liberado.`,
         entityType: 'escrow',
         entityId: payload.escrowId,
-        data: { projectId: escrow.contract.project.id },
+        data: { projectId: escrow.contract.project.id, projectTitle, variant: 'worker' },
       });
 
       await this.notifications.create({
         userId: clientId,
         type: 'escrow_released',
         title: 'Pagamento concluído',
-        body: `O pagamento do projeto ${escrow.contract.project.title} foi transferido com sucesso.`,
+        body: `O pagamento do projeto ${projectTitle} foi transferido com sucesso.`,
         entityType: 'escrow',
         entityId: payload.escrowId,
-        data: { projectId: escrow.contract.project.id },
+        data: { projectId: escrow.contract.project.id, projectTitle },
       });
     } catch (e) {
       this.logger.warn(`payment.released notification: ${String(e)}`);
@@ -545,23 +580,68 @@ export class NotificationsListeners {
       });
       if (!contract) return;
       const admins = await this.notifications.getAdminUserIds();
+      const projectTitle = contract.project.title;
       await this.notifications.create({
         userId: contract.project.clientId,
         type: 'payment_failed',
         title: 'Falha no pagamento',
-        body: `Não foi possível concluir o pagamento do projeto "${contract.project.title}". ${payload.reason ?? ''}`,
+        body: `Não foi possível concluir o pagamento do projeto "${projectTitle}". ${payload.reason ?? ''}`,
         entityType: 'contract',
         entityId: payload.contractId,
+        data: { projectTitle },
       });
       await this.notifications.createForUsers(admins, {
         type: 'payment_failed',
         title: 'Falha no pagamento',
-        body: `Projeto "${contract.project.title}" — pagamento falhou.`,
+        body: `Projeto "${projectTitle}" — pagamento falhou.`,
         entityType: 'contract',
         entityId: payload.contractId,
+        data: { projectTitle, variant: 'admin' },
       });
     } catch (e) {
       this.logger.warn(`payment.failed listener: ${String(e)}`);
+    }
+  }
+
+  @OnEvent('invite.redeemed')
+  async onInviteRedeemed(payload: {
+    inviteId: string;
+    projectId: string;
+    userId: string;
+  }) {
+    try {
+      const project = await this.prisma.project.findUnique({
+        where: { id: payload.projectId },
+        select: { title: true },
+      });
+      const user = await this.prisma.user.findUnique({
+        where: { id: payload.userId },
+        select: { name: true },
+      });
+      const projectTitle = project?.title ?? 'Obra';
+      const clientName = user?.name ?? 'cliente';
+      const admins = await this.notifications.getAdminUserIds();
+
+      await this.notifications.create({
+        userId: payload.userId,
+        type: 'invite_redeemed',
+        title: 'Obra adicionada à sua conta',
+        body: `Pode acompanhar as fases e finalizar o pagamento de "${projectTitle}".`,
+        entityType: 'project',
+        entityId: payload.projectId,
+        data: { projectTitle },
+      });
+
+      await this.notifications.createForUsers(admins, {
+        type: 'invite_redeemed',
+        title: 'Convite resgatado',
+        body: `${clientName} aceitou o convite para a obra "${projectTitle}".`,
+        entityType: 'project',
+        entityId: payload.projectId,
+        data: { projectTitle, clientName, variant: 'admin' },
+      });
+    } catch (e) {
+      this.logger.warn(`invite.redeemed listener: ${String(e)}`);
     }
   }
 
@@ -581,14 +661,15 @@ export class NotificationsListeners {
         select: { title: true },
       });
       if (!worker) return;
+      const projectTitle = project?.title ?? 'Projeto';
       await this.notifications.create({
         userId: worker.userId,
         type: 'worker_rated',
         title: 'Nova avaliação',
-        body: `Você recebeu nota ${payload.score} no projeto "${project?.title ?? 'Projeto'}".`,
+        body: `Você recebeu nota ${payload.score} no projeto "${projectTitle}".`,
         entityType: 'project',
         entityId: payload.projectId,
-        data: { score: payload.score },
+        data: { score: String(payload.score), projectTitle },
       });
     } catch (e) {
       this.logger.warn(`worker.rated listener: ${String(e)}`);
@@ -599,8 +680,6 @@ export class NotificationsListeners {
     to: ProjectStatus,
   ): NotificationType | null {
     switch (to) {
-      case 'in_validation':
-        return 'project_in_validation';
       case 'matched':
         return 'project_matched';
       case 'contract_signed':
@@ -625,40 +704,35 @@ export class NotificationsListeners {
     projectTitle: string,
   ): { title: string; body: string } {
     switch (type) {
-      case 'project_in_validation':
-        return {
-          title: 'Projeto em validação',
-          body: `"${projectTitle}" foi enviado para validação.`,
-        };
       case 'project_matched':
         return {
-          title: 'Projeto atualizado',
-          body: `O projeto "${projectTitle}" avançou no fluxo.`,
+          title: 'Obra pronta para matching',
+          body: `A obra "${projectTitle}" está disponível para atribuir um trabalhador.`,
         };
       case 'project_activated':
         return {
-          title: 'Projeto ativo',
-          body: `O projeto "${projectTitle}" está em andamento ou escrow ativo.`,
+          title: 'Obra ativa',
+          body: `A obra "${projectTitle}" está em andamento.`,
         };
       case 'project_closing':
         return {
-          title: 'Projeto em encerramento',
+          title: 'Obra em encerramento',
           body: `Todas as fases de "${projectTitle}" foram validadas. Encerramento em curso.`,
         };
       case 'project_closed':
         return {
-          title: 'Projeto encerrado',
-          body: `O projeto "${projectTitle}" foi encerrado.`,
+          title: 'Obra encerrada',
+          body: `A obra "${projectTitle}" foi encerrada.`,
         };
       case 'project_rejected':
         return {
-          title: 'Projeto rejeitado',
-          body: `O projeto "${projectTitle}" foi rejeitado.`,
+          title: 'Obra cancelada',
+          body: `A obra "${projectTitle}" foi cancelada.`,
         };
       default:
         return {
-          title: 'Projeto atualizado',
-          body: `Status do projeto "${projectTitle}" mudou.`,
+          title: 'Obra atualizada',
+          body: `Status da obra "${projectTitle}" mudou.`,
         };
     }
   }

@@ -1,50 +1,54 @@
 'use client'
-import Link from 'next/link'
-import { usePathname } from 'next/navigation'
+
+import { usePathname } from '@/i18n/navigation'
+import { Link } from '@/i18n/navigation'
 import Image from 'next/image'
 import {
-  Briefcase, Users, CreditCard, Shuffle, Wrench, Bell,
-  LogOut, ChevronLeft, ChevronRight,
+  Briefcase, Users, CreditCard, Wrench, Bell,
+  LogOut,
 } from 'lucide-react'
+import { useTranslations } from 'next-intl'
 import { cn } from '@/lib/utils/cn'
 import { signOut } from '@/lib/auth'
 import { useState } from 'react'
 
-const navItems = [
-  { href: '/projects', icon: Briefcase, label: 'Projetos' },
-  { href: '/workers',  icon: Users,     label: 'Workers' },
-  { href: '/payments', icon: CreditCard, label: 'Pagamentos' },
-  { href: '/notifications', icon: Bell, label: 'Notificações' },
-  { href: '/skills',   icon: Wrench,    label: 'Skills' },
-]
-
 export function Sidebar() {
   const pathname = usePathname()
-  const [collapsed, setCollapsed] = useState(false)
+  const t = useTranslations('nav')
+  const [collapsed, setCollapsed] = useState(true)
+
+  const navItems = [
+    { href: '/projects', icon: Briefcase, labelKey: 'projects' as const },
+    { href: '/workers', icon: Users, labelKey: 'workers' as const },
+    { href: '/payments', icon: CreditCard, labelKey: 'payments' as const },
+    { href: '/notifications', icon: Bell, labelKey: 'notifications' as const },
+    { href: '/skills', icon: Wrench, labelKey: 'skills' as const },
+  ]
 
   return (
     <aside
+      onMouseEnter={() => setCollapsed(false)}
+      onMouseLeave={() => setCollapsed(true)}
       className={cn(
         'flex flex-col h-screen bg-primary border-r border-divider transition-all duration-300',
         collapsed ? 'w-16' : 'w-60',
       )}
     >
-      {/* Logo */}
-      <div className={cn('flex items-center h-16 px-4 border-b border-divider', collapsed ? 'justify-center' : 'justify-between')}>
-        {!collapsed && (
-          <span className="text-accent font-bold text-lg tracking-wide">OX Admin</span>
-        )}
-        <button
-          onClick={() => setCollapsed((v) => !v)}
-          className="text-text-secondary hover:text-white p-1 rounded"
-        >
-          {collapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
-        </button>
+      <div className="flex items-center justify-center h-16 px-2 border-b border-divider">
+        <Link href="/" aria-label={t('brand')}>
+          <Image
+            src="/logo.webp"
+            alt={t('brand')}
+            width={collapsed ? 64 : 190}
+            height={collapsed ? 42 : 52}
+            className={cn('w-auto object-contain transition-all duration-300', collapsed ? 'h-10' : 'h-12')}
+            priority
+          />
+        </Link>
       </div>
 
-      {/* Nav */}
       <nav className="flex-1 px-2 py-4 space-y-1">
-        {navItems.map(({ href, icon: Icon, label }) => {
+        {navItems.map(({ href, icon: Icon, labelKey }) => {
           const active = pathname.startsWith(href)
           return (
             <Link
@@ -59,13 +63,12 @@ export function Sidebar() {
               )}
             >
               <Icon className={cn('w-5 h-5 flex-shrink-0', active ? 'text-accent' : 'text-text-secondary')} />
-              {!collapsed && <span>{label}</span>}
+              {!collapsed && <span>{t(labelKey)}</span>}
             </Link>
           )
         })}
       </nav>
 
-      {/* Logout */}
       <div className="px-2 pb-4 border-t border-divider pt-4">
         <form action={signOut}>
           <button
@@ -76,7 +79,7 @@ export function Sidebar() {
             )}
           >
             <LogOut className="w-5 h-5 flex-shrink-0" />
-            {!collapsed && <span>Sair</span>}
+            {!collapsed && <span>{t('logout')}</span>}
           </button>
         </form>
       </div>

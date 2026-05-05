@@ -25,7 +25,7 @@ class OxAppBar extends StatelessWidget implements PreferredSizeWidget {
       centerTitle: centerTitle,
       leading: leading,
       title: showLogo
-          ? Image.asset('assets/logo.webp', height: 32)
+          ? Image.asset('assets/logo.webp', height: 40)
           : title != null
               ? Text(
                   title!,

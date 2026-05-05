@@ -1,39 +1,11 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lucide_flutter/lucide_flutter.dart';
 import '../../core/auth/token_storage.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_gradients.dart';
 import '../../core/widgets/ox_button.dart';
-
-class _OnboardingPage {
-  const _OnboardingPage({
-    required this.icon,
-    required this.title,
-    required this.subtitle,
-  });
-  final IconData icon;
-  final String title;
-  final String subtitle;
-}
-
-final _pages = [
-  const _OnboardingPage(
-    icon: LucideIcons.layoutList,
-    title: 'Crie seu projeto',
-    subtitle: 'Descreva o serviço, defina fases e orçamento com facilidade.',
-  ),
-  const _OnboardingPage(
-    icon: LucideIcons.users,
-    title: 'Encontramos o profissional',
-    subtitle: 'Matching automático com trabalhadores certificados e bem avaliados.',
-  ),
-  const _OnboardingPage(
-    icon: LucideIcons.shieldCheck,
-    title: 'Pague com segurança',
-    subtitle: 'Escrow libera o valor só após sua aprovação de cada fase.',
-  ),
-];
+import '../../l10n/app_localizations.dart';
 
 class OnboardingScreen extends StatefulWidget {
   const OnboardingScreen({super.key});
@@ -46,8 +18,10 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   final _controller = PageController();
   int _page = 0;
 
+  static const _pageCount = 3;
+
   void _next() {
-    if (_page < _pages.length - 1) {
+    if (_page < _pageCount - 1) {
       _controller.nextPage(
         duration: const Duration(milliseconds: 300),
         curve: Curves.easeInOut,
@@ -64,6 +38,14 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
+
+    final pages = [
+      (icon: LucideIcons.layoutList, title: l.onboardingPage1Title, subtitle: l.onboardingPage1Subtitle),
+      (icon: LucideIcons.users, title: l.onboardingPage2Title, subtitle: l.onboardingPage2Subtitle),
+      (icon: LucideIcons.shieldCheck, title: l.onboardingPage3Title, subtitle: l.onboardingPage3Subtitle),
+    ];
+
     return Scaffold(
       body: Container(
         decoration: const BoxDecoration(gradient: AppGradients.hero),
@@ -74,9 +56,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                 alignment: Alignment.topRight,
                 child: TextButton(
                   onPressed: _finish,
-                  child: const Text(
-                    'Pular',
-                    style: TextStyle(
+                  child: Text(
+                    l.onboardingSkip,
+                    style: const TextStyle(
                       color: AppColors.textSecondary,
                       fontFamily: 'Inter',
                     ),
@@ -87,15 +69,18 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                 child: PageView.builder(
                   controller: _controller,
                   onPageChanged: (i) => setState(() => _page = i),
-                  itemCount: _pages.length,
-                  itemBuilder: (context, i) => _OnboardingPageWidget(page: _pages[i]),
+                  itemCount: pages.length,
+                  itemBuilder: (context, i) => _OnboardingPageWidget(
+                    icon: pages[i].icon,
+                    title: pages[i].title,
+                    subtitle: pages[i].subtitle,
+                  ),
                 ),
               ),
-              // Dots
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: List.generate(
-                  _pages.length,
+                  pages.length,
                   (i) => AnimatedContainer(
                     duration: const Duration(milliseconds: 200),
                     width: i == _page ? 24 : 8,
@@ -112,7 +97,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 24),
                 child: OxButton(
-                  label: _page == _pages.length - 1 ? 'Começar' : 'Continuar',
+                  label: _page == pages.length - 1 ? l.onboardingStart : l.createProjectNextButton,
                   onPressed: _next,
                 ),
               ),
@@ -126,8 +111,15 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 }
 
 class _OnboardingPageWidget extends StatelessWidget {
-  const _OnboardingPageWidget({required this.page});
-  final _OnboardingPage page;
+  const _OnboardingPageWidget({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+  });
+
+  final IconData icon;
+  final String title;
+  final String subtitle;
 
   @override
   Widget build(BuildContext context) {
@@ -144,11 +136,11 @@ class _OnboardingPageWidget extends StatelessWidget {
               shape: BoxShape.circle,
               border: Border.all(color: AppColors.divider),
             ),
-            child: Icon(page.icon, size: 52, color: AppColors.accent),
+            child: Icon(icon, size: 52, color: AppColors.accent),
           ),
           const SizedBox(height: 40),
           Text(
-            page.title,
+            title,
             style: const TextStyle(
               fontSize: 24,
               fontWeight: FontWeight.w700,
@@ -159,7 +151,7 @@ class _OnboardingPageWidget extends StatelessWidget {
           ),
           const SizedBox(height: 16),
           Text(
-            page.subtitle,
+            subtitle,
             style: const TextStyle(
               fontSize: 15,
               color: AppColors.textSecondary,

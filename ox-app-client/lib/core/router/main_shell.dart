@@ -2,30 +2,50 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lucide_flutter/lucide_flutter.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../core/widgets/profile_avatar.dart';
+import '../../features/auth/auth_me_provider.dart';
 import '../../features/notifications/notifications_provider.dart';
+import '../../l10n/app_localizations.dart';
 
 class MainShell extends ConsumerWidget {
-  const MainShell({super.key, required this.child});
+  const MainShell({super.key, required this.navigationShell});
 
-  final Widget child;
+  final StatefulNavigationShell navigationShell;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final location = GoRouterState.of(context).matchedLocation;
-    final index = _indexFromLocation(location);
+    final l = AppLocalizations.of(context)!;
     final unreadAsync = ref.watch(unreadNotificationsCountProvider);
     final unread = unreadAsync.maybeWhen(data: (c) => c, orElse: () => 0);
+    final meAsync = ref.watch(authMeProvider);
+    final me = meAsync.valueOrNull;
+    final label = (me?.name.isNotEmpty == true
+            ? me!.name
+            : me?.email.isNotEmpty == true
+                ? me!.email
+                : Supabase.instance.client.auth.currentUser?.email) ??
+        '';
+
+    Widget profileIcon({required bool active}) {
+      return ProfileAvatar(
+        radius: 12,
+        imageUrl: me?.avatarUrl,
+        label: label,
+        emphasizeBorder: active,
+      );
+    }
 
     return Scaffold(
-      body: child,
+      body: navigationShell,
       bottomNavigationBar: BottomNavigationBar(
-        currentIndex: index < 0 ? 0 : index,
-        onTap: (i) => _onTabTap(context, i),
+        currentIndex: navigationShell.currentIndex,
+        onTap: navigationShell.goBranch,
         items: [
-          const BottomNavigationBarItem(
-            icon: Icon(LucideIcons.folderOpen),
-            label: 'Projetos',
+          BottomNavigationBarItem(
+            icon: const Icon(LucideIcons.folderOpen),
+            label: l.navProjects,
           ),
           BottomNavigationBarItem(
             icon: Badge(
@@ -33,35 +53,15 @@ class MainShell extends ConsumerWidget {
               label: Text(unread > 99 ? '99+' : '$unread'),
               child: const Icon(LucideIcons.bell),
             ),
-            label: 'Notificações',
+            label: l.navNotifications,
           ),
-          const BottomNavigationBarItem(
-            icon: Icon(LucideIcons.user),
-            label: 'Perfil',
+          BottomNavigationBarItem(
+            icon: profileIcon(active: false),
+            activeIcon: profileIcon(active: true),
+            label: l.navProfile,
           ),
         ],
       ),
     );
-  }
-
-  int _indexFromLocation(String location) {
-    if (location.startsWith('/home') || location.startsWith('/projects')) return 0;
-    if (location.startsWith('/notifications')) return 1;
-    if (location.startsWith('/profile')) return 2;
-    return 0;
-  }
-
-  void _onTabTap(BuildContext context, int index) {
-    switch (index) {
-      case 0:
-        context.go('/home');
-        break;
-      case 1:
-        context.go('/notifications');
-        break;
-      case 2:
-        context.go('/profile');
-        break;
-    }
   }
 }

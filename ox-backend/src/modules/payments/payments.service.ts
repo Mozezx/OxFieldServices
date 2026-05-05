@@ -34,17 +34,51 @@ export class PaymentsService {
     return this.stripeService.createWorkerAccount(workerId, worker.user.email);
   }
 
-  async getOnboardingLink(workerId: string, returnUrl: string) {
+  async getOnboardingLink(
+    workerId: string | undefined,
+    returnUrl: string,
+    refreshUrl: string,
+  ) {
+    if (!workerId) {
+      throw new BadRequestException('Worker sem conta Stripe. Crie primeiro via POST /payments/worker-account');
+    }
     const worker = await this.prisma.worker.findUnique({ where: { id: workerId } });
     if (!worker?.stripeAccountId) {
       throw new BadRequestException('Worker sem conta Stripe. Crie primeiro via POST /payments/worker-account');
     }
-    const url = await this.stripeService.createOnboardingLink(
+    const url = await this.stripeService.createConnectAccountLink(
       worker.stripeAccountId,
       returnUrl,
-      returnUrl,
+      refreshUrl,
     );
     return { url };
+  }
+
+  /**
+   * Página HTML após redirect do Stripe (link público; browser do worker sem JWT).
+   */
+  getStripeConnectLandingHtml(kind: 'done' | 'refresh'): string {
+    const deepLink = process.env.STRIPE_CONNECT_APP_DEEP_LINK?.trim() ?? '';
+    const esc = (s: string) =>
+      s
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/"/g, '&quot;');
+
+    const title =
+      kind === 'refresh'
+        ? 'Link expirado — OX'
+        : 'Stripe — concluído';
+    const headline =
+      kind === 'refresh'
+        ? 'Este link expirou. Volte ao aplicativo OX Trabalhador e abra novamente a verificação da conta.'
+        : 'Concluído. Volte ao aplicativo OX Trabalhador para ver o estado atualizado.';
+    const openApp =
+      deepLink !== ''
+        ? `<p style="margin-top:1.5rem"><a href="${esc(deepLink)}" style="display:inline-block;padding:12px 20px;background:#2563eb;color:#fff;text-decoration:none;border-radius:8px;font-weight:600">Abrir aplicativo OX</a></p>`
+        : '';
+
+    return `<!DOCTYPE html><html lang="pt-BR"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/><title>${esc(title)}</title></head><body style="font-family:system-ui,sans-serif;max-width:28rem;margin:3rem auto;padding:0 1rem;line-height:1.5;color:#111"><h1 style="font-size:1.125rem">${esc(headline)}</h1>${openApp}<p style="margin-top:1rem;font-size:0.875rem;color:#555">Pode fechar esta aba.</p></body></html>`;
   }
 
   async createEscrow(contractId: string, userId?: string) {
@@ -55,8 +89,7 @@ export class PaymentsService {
 
     if (!contract) throw new NotFoundException('Contrato não encontrado');
 
-    // Quando já existe escrow, retorna o intent atual em vez de erro
-    // (idempotência: usuário pode reabrir a tela de pagamento)
+    // Escrow já existe — pagamento confirmado
     if (contract.escrow) {
       return {
         clientSecret: null,
@@ -64,6 +97,50 @@ export class PaymentsService {
         amount: contract.totalAmount,
         alreadyPaid: true,
       };
+    }
+
+    // PaymentIntent já foi criado — verifica status no Stripe antes de criar outro
+    if (contract.stripeIntentId) {
+      try {
+        const pi = await this.stripeService.client.paymentIntents.retrieve(
+          contract.stripeIntentId,
+        );
+        if (pi.status === 'succeeded') {
+          // Webhook não chegou — ativa o escrow agora (self-heal)
+          const chargeId =
+            typeof pi.latest_charge === 'string'
+              ? pi.latest_charge
+              : (pi.latest_charge as { id: string } | null)?.id;
+          await this.activateEscrow(contractId, chargeId);
+          return {
+            clientSecret: null,
+            paymentIntentId: pi.id,
+            amount: contract.totalAmount,
+            alreadyPaid: true,
+          };
+        }
+        // Pagamento ainda não foi concluído — reutiliza o intent existente
+        if (pi.status !== 'canceled') {
+          let customerId: string | undefined;
+          let ephemeralKeySecret: string | undefined;
+          if (userId) {
+            customerId = await this.stripeService.getOrCreateCustomer(userId);
+            const ephKey = await this.stripeService.createEphemeralKey(customerId);
+            ephemeralKeySecret = ephKey.secret;
+          }
+          return {
+            clientSecret: pi.client_secret,
+            paymentIntentId: pi.id,
+            amount: contract.totalAmount,
+            customerId,
+            customerEphemeralKeySecret: ephemeralKeySecret,
+            publishableKey: process.env.STRIPE_PUBLISHABLE_KEY ?? '',
+            alreadyPaid: false,
+          };
+        }
+      } catch (err) {
+        this.logger.warn(`Não foi possível recuperar PaymentIntent ${contract.stripeIntentId}: ${err}`);
+      }
     }
 
     // Anexa Customer ao PaymentIntent quando temos o userId (apps autenticados)
@@ -140,7 +217,8 @@ export class PaymentsService {
 
   // ─── Connect status (worker) ───────────────────────────
 
-  async getWorkerAccountStatus(workerId: string) {
+  async getWorkerAccountStatus(workerId: string | undefined) {
+    if (!workerId) throw new NotFoundException('Worker não encontrado');
     const worker = await this.prisma.worker.findUnique({ where: { id: workerId } });
     if (!worker) throw new NotFoundException('Worker não encontrado');
 
@@ -157,6 +235,28 @@ export class PaymentsService {
     }
 
     return this.stripeService.getAccountStatus(worker.stripeAccountId);
+  }
+
+  /**
+   * Resolve o contrato do PI: metadata (preferencial) ou contrato com stripeIntentId igual ao id do PI.
+   * Cobre webhooks quando metadata.contractId não chega ou está vazio no evento.
+   */
+  async resolveContractIdForPaymentIntent(
+    paymentIntentId: string,
+    metadataContractId?: string | null,
+  ): Promise<string | null> {
+    const fromMeta = metadataContractId?.trim();
+    if (fromMeta) return fromMeta;
+    const row = await this.prisma.contract.findFirst({
+      where: { stripeIntentId: paymentIntentId },
+      select: { id: true },
+    });
+    if (!row) {
+      this.logger.warn(
+        `payment_intent.succeeded: PI ${paymentIntentId} sem metadata.contractId e sem contrato com stripeIntentId — escrow não ativado`,
+      );
+    }
+    return row?.id ?? null;
   }
 
   // Chamado pelo webhook payment_intent.succeeded
@@ -201,7 +301,7 @@ export class PaymentsService {
 
     if (!chargeId) {
       this.logger.warn(
-        `Escrow ${contractId}: sem charge de origem (ch_) — transfers Connect ao Brasil exigem source_transaction`,
+        `Escrow ${contractId}: sem charge de origem (ch_) — transfers Connect com source_transaction exigem ch_`,
       );
     }
 
@@ -348,18 +448,36 @@ export class PaymentsService {
 
     if (!escrow.stripeSourceChargeId) {
       this.logger.error(
-        `Escrow ${escrow.id} sem stripeSourceChargeId (charge ch_...) — obrigatório para transfers ao Brasil`,
+        `Escrow ${escrow.id} sem stripeSourceChargeId (charge ch_...) — obrigatório para transfers com source_transaction`,
       );
       return;
     }
 
     const workerCents = Math.floor(Number(phase.amount) * 100 * 0.7);
 
+    let transferCurrency: string;
+    try {
+      transferCurrency = await this.stripeService.getChargeCurrency(
+        escrow.stripeSourceChargeId,
+      );
+    } catch (err) {
+      this.logger.error(
+        `Não foi possível obter moeda da charge ${escrow.stripeSourceChargeId}: ${err}`,
+      );
+      return;
+    }
+
+    if (transferCurrency !== this.stripeService.chargeCurrency) {
+      this.logger.warn(
+        `Fase ${payload.phaseId}: moeda da charge (${transferCurrency}) ≠ STRIPE_CHARGE_CURRENCY (${this.stripeService.chargeCurrency}) — transfer usa a moeda da charge; alinhe env e valores da fase ao mesmo ISO.`,
+      );
+    }
+
     try {
       const transfer = await this.stripeService.client.transfers.create(
         {
           amount: workerCents,
-          currency: this.stripeService.chargeCurrency,
+          currency: transferCurrency,
           destination: worker.stripeAccountId,
           source_transaction: escrow.stripeSourceChargeId,
           metadata: { phaseId: payload.phaseId, type: 'phase_payment' },
@@ -388,7 +506,7 @@ export class PaymentsService {
       });
 
       this.logger.log(
-        `Fase ${payload.phaseId}: ${(workerCents / 100).toFixed(2)} ${this.stripeService.chargeCurrency.toUpperCase()} transferidos ao worker ${worker.id} (transfer ${transfer.id})`,
+        `Fase ${payload.phaseId}: ${(workerCents / 100).toFixed(2)} ${transferCurrency.toUpperCase()} transferidos ao worker ${worker.id} (transfer ${transfer.id})`,
       );
     } catch (err) {
       this.logger.error(`Erro no transfer da fase ${payload.phaseId}: ${err}`);

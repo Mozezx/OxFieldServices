@@ -36,8 +36,7 @@ class PaymentItemModel {
   bool get isReleased => status == 'released' || paidAt != null;
 }
 
-final paymentsProvider =
-    FutureProvider.autoDispose<List<PaymentItemModel>>((ref) async {
+final paymentsProvider = FutureProvider<List<PaymentItemModel>>((ref) async {
   final api = ref.watch(apiClientProvider);
   try {
     final res = await api.dio.get(ApiEndpoints.paymentsHistory);
@@ -50,7 +49,7 @@ final paymentsProvider =
   }
 });
 
-final totalReceivedProvider = Provider.autoDispose<AsyncValue<double>>((ref) {
+final totalReceivedProvider = Provider<AsyncValue<double>>((ref) {
   return ref.watch(paymentsProvider).whenData(
     (payments) => payments
         .where((p) => p.isReleased)

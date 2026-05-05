@@ -45,7 +45,7 @@ class PhaseModel {
 }
 
 final phaseDetailProvider =
-    FutureProvider.autoDispose.family<PhaseModel, String>((ref, phaseId) async {
+    FutureProvider.family<PhaseModel, String>((ref, phaseId) async {
   final api = ref.watch(apiClientProvider);
   final res = await api.dio.get(ApiEndpoints.phaseById(phaseId));
   return PhaseModel.fromJson(res.data as Map<String, dynamic>);

@@ -11,7 +11,8 @@ import 'package:go_router/go_router.dart';
 import '../../firebase_options.dart';
 import '../api/api_client.dart';
 import '../api/api_endpoints.dart';
-import '../../features/notifications/notifications_provider.dart';
+import '../router/notification_route_helper.dart';
+import '../providers/domain_cache_invalidation.dart';
 
 final FlutterLocalNotificationsPlugin _localNotifications =
     FlutterLocalNotificationsPlugin();
@@ -29,6 +30,12 @@ String _devicePlatform() {
   return 'android';
 }
 
+String? _fcmScopesString(Map<String, dynamic> data) {
+  final s = data['scopes'];
+  if (s is String && s.isNotEmpty) return s;
+  return null;
+}
+
 @pragma('vm:entry-point')
 Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   final opts = DefaultFirebaseOptions.currentPlatform;
@@ -41,7 +48,11 @@ class PushNotificationsService {
 
   final WidgetRef _ref;
 
-  Future<void> initialize({GoRouter? router}) async {
+  Future<void> initialize({
+    GoRouter? router,
+    String channelName = 'OX Notificações',
+    String channelDescription = 'Notificações do OX Field Services',
+  }) async {
     try {
       final opts = DefaultFirebaseOptions.currentPlatform;
       if (!_firebaseReady(opts)) {
@@ -53,7 +64,10 @@ class PushNotificationsService {
 
       await Firebase.initializeApp(options: opts);
 
-      await _setupLocalNotifications();
+      await _setupLocalNotifications(
+        channelName: channelName,
+        channelDescription: channelDescription,
+      );
 
       final messaging = FirebaseMessaging.instance;
       if (Platform.isIOS) {
@@ -70,18 +84,23 @@ class PushNotificationsService {
       FirebaseMessaging.instance.onTokenRefresh.listen(_registerToken);
 
       FirebaseMessaging.onMessage.listen((RemoteMessage msg) async {
-        await _showLocalNotification(msg);
-        _ref.invalidate(notificationsListProvider);
-        _ref.invalidate(unreadNotificationsCountProvider);
+        await _showLocalNotification(
+          msg,
+          channelName: channelName,
+          channelDescription: channelDescription,
+        );
+        applyWorkerRealtimeScopesFromFcm(_ref, _fcmScopesString(msg.data));
       });
 
       FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage msg) {
+        applyWorkerRealtimeScopesFromFcm(_ref, _fcmScopesString(msg.data));
         _handleNavigation(router, msg.data);
       });
 
       final initial = await messaging.getInitialMessage();
       if (initial != null) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
+          applyWorkerRealtimeScopesFromFcm(_ref, _fcmScopesString(initial.data));
           _handleNavigation(router, initial.data);
         });
       }
@@ -105,17 +124,20 @@ class PushNotificationsService {
     }
   }
 
-  Future<void> _setupLocalNotifications() async {
-    const android = AndroidInitializationSettings('@mipmap/ic_launcher');
+  Future<void> _setupLocalNotifications({
+    required String channelName,
+    required String channelDescription,
+  }) async {
+    const android = AndroidInitializationSettings('ic_stat_ox');
     const ios = DarwinInitializationSettings();
     await _localNotifications.initialize(
       const InitializationSettings(android: android, iOS: ios),
     );
 
-    const channel = AndroidNotificationChannel(
+    final channel = AndroidNotificationChannel(
       'ox_default',
-      'OX Notificações',
-      description: 'Notificações do OX Field Services',
+      channelName,
+      description: channelDescription,
       importance: Importance.high,
     );
     await _localNotifications
@@ -124,7 +146,11 @@ class PushNotificationsService {
         ?.createNotificationChannel(channel);
   }
 
-  Future<void> _showLocalNotification(RemoteMessage msg) async {
+  Future<void> _showLocalNotification(
+    RemoteMessage msg, {
+    required String channelName,
+    required String channelDescription,
+  }) async {
     final n = msg.notification;
     final title = n?.title ?? msg.data['title'] ?? 'OX';
     final body = n?.body ?? msg.data['body'] ?? '';
@@ -134,15 +160,17 @@ class PushNotificationsService {
       msg.hashCode,
       title,
       body,
-      const NotificationDetails(
+      NotificationDetails(
         android: AndroidNotificationDetails(
           'ox_default',
-          'OX Notificações',
-          channelDescription: 'Notificações do OX Field Services',
+          channelName,
+          channelDescription: channelDescription,
           importance: Importance.high,
           priority: Priority.high,
+          icon: 'ic_stat_ox',
+          largeIcon: const DrawableResourceAndroidBitmap('ic_launcher_foreground'),
         ),
-        iOS: DarwinNotificationDetails(),
+        iOS: const DarwinNotificationDetails(),
       ),
       payload: msg.data.isNotEmpty ? msg.data.toString() : null,
     );
@@ -159,10 +187,18 @@ class PushNotificationsService {
 
     switch (entityType) {
       case 'project':
-        router.go('/jobs/$entityId');
+        goThenPushDetail(
+          router,
+          basePath: '/home',
+          detailPath: '/jobs/$entityId',
+        );
         break;
       case 'phase':
-        router.go('/execution/$entityId');
+        goThenPushDetail(
+          router,
+          basePath: '/execution',
+          detailPath: '/execution/$entityId',
+        );
         break;
       case 'contract':
       case 'escrow':

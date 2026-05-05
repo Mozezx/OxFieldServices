@@ -11,6 +11,7 @@ class NotificationItem {
     required this.body,
     this.entityType,
     this.entityId,
+    this.metadata,
     this.readAt,
     required this.createdAt,
   });
@@ -21,6 +22,7 @@ class NotificationItem {
   final String body;
   final String? entityType;
   final String? entityId;
+  final Map<String, dynamic>? metadata;
   final String? readAt;
   final String createdAt;
 
@@ -34,6 +36,7 @@ class NotificationItem {
       body: json['body'] as String,
       entityType: json['entityType'] as String?,
       entityId: json['entityId'] as String?,
+      metadata: json['data'] as Map<String, dynamic>?,
       readAt: json['readAt'] as String?,
       createdAt: json['createdAt'] as String,
     );
@@ -41,7 +44,7 @@ class NotificationItem {
 }
 
 final notificationsListProvider =
-    FutureProvider.autoDispose<List<NotificationItem>>((ref) async {
+    FutureProvider<List<NotificationItem>>((ref) async {
   final dio = ref.watch(apiClientProvider).dio;
   final res = await dio.get<Map<String, dynamic>>(
     ApiEndpoints.notifications,
@@ -53,8 +56,7 @@ final notificationsListProvider =
       .toList();
 });
 
-final unreadNotificationsCountProvider =
-    FutureProvider.autoDispose<int>((ref) async {
+final unreadNotificationsCountProvider = FutureProvider<int>((ref) async {
   final dio = ref.watch(apiClientProvider).dio;
   final res = await dio.get<Map<String, dynamic>>(
     ApiEndpoints.notificationsUnreadCount,

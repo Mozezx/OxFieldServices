@@ -84,7 +84,6 @@ OxBadgeStatus projectStatusToBadge(String status) {
     case 'validated':
       return OxBadgeStatus.active;
     case 'pending':
-    case 'in_validation':
     case 'matched':
     case 'under_review':
       return OxBadgeStatus.pending;

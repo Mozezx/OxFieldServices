@@ -1,0 +1,94 @@
+version: '3.9'
+
+services:
+
+  ox-api:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    container_name: ox-api
+    ports:
+      - "3000:3000"
+      - "9229:9229"
+    environment:
+      NODE_ENV: development
+      DATABASE_URL: ${DATABASE_URL}
+      REDIS_URL: redis://redis:6379
+    env_file:
+      - .env
+    volumes:
+      - .:/app
+      - /app/node_modules
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - ox-network
+    restart: unless-stopped
+
+  ox-migrate:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    container_name: ox-migrate
+    command: npx prisma migrate deploy
+    environment:
+      DATABASE_URL: ${DATABASE_URL}
+    env_file:
+      - .env
+    networks:
+      - ox-network
+    profiles:
+      - migrate
+
+  redis:
+    image: redis:7-alpine
+    container_name: ox-redis
+    ports:
+      - "6379:6379"
+    command: redis-server --appendonly yes --requirepass redis_pass
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "redis_pass", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - ox-network
+    restart: unless-stopped
+
+  stripe-cli:
+    image: stripe/stripe-cli:latest
+    container_name: ox-stripe-cli
+    command: listen --forward-to ox-api:3000/webhooks/stripe
+    environment:
+      STRIPE_API_KEY: ${STRIPE_SECRET_KEY}
+    depends_on:
+      - ox-api
+    networks:
+      - ox-network
+    profiles:
+      - stripe
+
+  redis-commander:
+    image: rediscommander/redis-commander:latest
+    container_name: ox-redis-ui
+    ports:
+      - "8081:8081"
+    environment:
+      REDIS_HOSTS: "ox-redis:redis:6379:0:redis_pass"
+    depends_on:
+      - redis
+    networks:
+      - ox-network
+    profiles:
+      - tools
+
+volumes:
+  redis_data:
+    driver: local
+
+networks:
+  ox-network:
+    driver: bridge

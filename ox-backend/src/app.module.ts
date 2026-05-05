@@ -14,6 +14,8 @@ import { MatchingModule } from './modules/matching/matching.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
 import { UsersModule } from './modules/users/users.module';
 import { SkillsModule } from './modules/skills/skills.module';
+import { InvitesModule } from './modules/invites/invites.module';
+import { AdminModule } from './modules/admin/admin.module';
 
 @Module({
   imports: [
@@ -30,6 +32,8 @@ import { SkillsModule } from './modules/skills/skills.module';
     NotificationsModule,
     UsersModule,
     SkillsModule,
+    InvitesModule,
+    AdminModule,
   ],
   controllers: [AppController],
   providers: [AppService],

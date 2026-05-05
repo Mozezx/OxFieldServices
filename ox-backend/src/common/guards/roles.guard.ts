@@ -1,4 +1,10 @@
-import { Injectable, CanActivate, ExecutionContext } from '@nestjs/common';
+import {
+  CanActivate,
+  ExecutionContext,
+  ForbiddenException,
+  Injectable,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { ROLES_KEY } from '../decorators/roles.decorator';
 
@@ -15,6 +21,15 @@ export class RolesGuard implements CanActivate {
     if (!requiredRoles) return true;
 
     const { user } = context.switchToHttp().getRequest();
-    return requiredRoles.includes(user?.role);
+    if (!user) {
+      throw new UnauthorizedException();
+    }
+    if (!requiredRoles.includes(user?.role)) {
+      throw new ForbiddenException(
+        `Sem permissão para esta ação (papel: ${String(user?.role ?? 'indefinido')}). ` +
+          `Se acabou de criar a conta, faça POST /auth/sync e volte a tentar.`,
+      );
+    }
+    return true;
   }
 }

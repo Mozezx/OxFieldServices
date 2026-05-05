@@ -13,6 +13,7 @@ import { StripeService } from './stripe.service';
 
 /** Campos usados do PaymentIntent em payment_intent.succeeded (Stripe SDK v22 não exporta PaymentIntent no root). */
 type PaymentIntentSucceededPayload = {
+  id: string;
   metadata?: { contractId?: string } | null;
   latest_charge?: string | { id: string } | null;
 };
@@ -44,11 +45,14 @@ export class StripeWebhookController {
     switch (event.type) {
       case 'payment_intent.succeeded': {
         const pi = event.data.object as PaymentIntentSucceededPayload;
-        const contractId = pi.metadata?.contractId;
         const chargeId =
           typeof pi.latest_charge === 'string'
             ? pi.latest_charge
             : pi.latest_charge?.id;
+        const contractId = await this.paymentsService.resolveContractIdForPaymentIntent(
+          pi.id,
+          pi.metadata?.contractId,
+        );
         if (contractId) {
           await this.paymentsService.activateEscrow(contractId, chargeId);
         }

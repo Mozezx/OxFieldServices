@@ -14,7 +14,7 @@ import {
   getNextStatus,
   getAvailableEvents,
 } from '../../common/state-machine/project.machine';
-import { ProjectStatus, Prisma } from '@prisma/client';
+import { ProjectStatus, Prisma, UserRole } from '@prisma/client';
 
 @Injectable()
 export class ProjectsService {
@@ -23,11 +23,69 @@ export class ProjectsService {
     private readonly eventEmitter: EventEmitter2,
   ) {}
 
+  /** Resolve id interno da tabela User a partir do id Prisma ou do authId (Supabase). */
+  async resolveUserKeyToId(userKey: string): Promise<string> {
+    const u = await this.requireAppUser(userKey);
+    return u.id;
+  }
+
+  /** Perfil Worker ligado ao utilizador da app (fallback quando o JWT não inclui `worker`). */
+  async findWorkerIdForAppUser(userId: string): Promise<string | undefined> {
+    const row = await this.prisma.worker.findUnique({
+      where: { userId },
+      select: { id: true },
+    });
+    return row?.id;
+  }
+
+  private async requireAppUser(userKey: string): Promise<{ id: string; role: UserRole }> {
+    const key = userKey?.trim();
+    if (!key) {
+      throw new ForbiddenException('Sessão inválida: identificador de utilizador em falta.');
+    }
+    const user = await this.prisma.user.findFirst({
+      where: { OR: [{ id: key }, { authId: key }] },
+      select: { id: true, role: true },
+    });
+    if (!user) {
+      throw new ForbiddenException(
+        'Utilizador não encontrado na base de dados. Termine sessão, entre novamente ou faça POST /auth/sync.',
+      );
+    }
+    return user;
+  }
+
   /**
-   * Cria um novo projeto no status 'draft', com fases opcionais.
+   * Cria uma obra com fases opcionais.
+   *
+   * Hoje só o admin cria obras (após visita presencial). O parâmetro `submit=true`
+   * publica a obra direto em `matched` (pronta para matching). `submit=false` deixa
+   * em `draft` como rascunho — o admin pode promover depois com o evento READY.
    */
-  async create(clientId: string, dto: CreateProjectDto) {
-    const { phases, ...projectData } = dto;
+  async create(userKey: string, dto: CreateProjectDto) {
+    const appUser = await this.requireAppUser(userKey);
+    let clientId = appUser.id;
+    let createdByAdmin = false;
+
+    if (appUser.role === 'admin') {
+      createdByAdmin = true;
+      if (dto.clientId) {
+        const target = await this.prisma.user.findUnique({ where: { id: dto.clientId }, select: { id: true } });
+        if (!target) throw new BadRequestException(`Cliente com id '${dto.clientId}' não encontrado.`);
+        clientId = target.id;
+      } else if (dto.clientEmail) {
+        const target = await this.prisma.user.findUnique({ where: { email: dto.clientEmail }, select: { id: true } });
+        if (!target) throw new BadRequestException(`Cliente com email '${dto.clientEmail}' não encontrado.`);
+        clientId = target.id;
+      }
+    } else if (dto.clientId || dto.clientEmail) {
+      throw new ForbiddenException('Apenas administradores podem criar projetos em nome de outro cliente.');
+    }
+
+    const { phases, clientId: _cid, clientEmail: _cemail, submit, ...projectData } = dto;
+
+    const initialStatus: ProjectStatus =
+      createdByAdmin && submit ? 'matched' : 'draft';
 
     const project = await this.prisma.project.create({
       data: {
@@ -36,6 +94,7 @@ export class ProjectsService {
           ? new Date(projectData.deadline)
           : undefined,
         clientId,
+        status: initialStatus,
         phases: phases?.length
           ? {
               create: phases.map((phase) => ({
@@ -55,7 +114,16 @@ export class ProjectsService {
     this.eventEmitter.emit('project.created', {
       projectId: project.id,
       clientId,
+      createdByAdmin,
     });
+
+    if (initialStatus !== 'draft') {
+      this.eventEmitter.emit('project.status_changed', {
+        projectId: project.id,
+        from: 'draft',
+        to: initialStatus,
+      });
+    }
 
     return this.formatResponse(project);
   }
@@ -89,6 +157,9 @@ export class ProjectsService {
         take: params.take ?? 20,
         orderBy: { createdAt: 'desc' },
         include: {
+          client: {
+            select: { id: true, name: true, email: true, avatarUrl: true },
+          },
           phases: { orderBy: { order: 'asc' } },
           contract: {
             include: {
@@ -115,8 +186,9 @@ export class ProjectsService {
 
   /**
    * Busca um projeto pelo ID.
+   * Quando `viewerKey` é passado e o viewer é o cliente dono, inclui `myRating`.
    */
-  async findOne(id: string) {
+  async findOne(id: string, viewerKey?: string) {
     const project = await this.prisma.project.findUnique({
       where: { id },
       include: {
@@ -139,7 +211,7 @@ export class ProjectsService {
           },
         },
         client: {
-          select: { id: true, name: true, email: true },
+          select: { id: true, name: true, email: true, avatarUrl: true },
         },
       },
     });
@@ -148,13 +220,35 @@ export class ProjectsService {
       throw new NotFoundException('Projeto não encontrado');
     }
 
-    return this.formatResponse(project);
+    const base = this.formatResponse(project);
+
+    if (!viewerKey?.trim()) {
+      return base;
+    }
+
+    const viewer = await this.requireAppUser(viewerKey);
+    if (viewer.role !== UserRole.client || viewer.id !== project.clientId) {
+      return base;
+    }
+
+    const row = await this.prisma.workerRating.findFirst({
+      where: { projectId: id, userId: viewer.id },
+      select: { score: true, feedback: true },
+    });
+
+    return {
+      ...base,
+      myRating: row
+        ? { score: row.score, feedback: row.feedback ?? null }
+        : null,
+    };
   }
 
   /**
    * Atualiza dados do projeto (não muda status).
    */
-  async update(id: string, userId: string, dto: UpdateProjectDto) {
+  async update(id: string, userKey: string, dto: UpdateProjectDto) {
+    const appUser = await this.requireAppUser(userKey);
     const project = await this.prisma.project.findUnique({
       where: { id },
     });
@@ -163,7 +257,7 @@ export class ProjectsService {
       throw new NotFoundException('Projeto não encontrado');
     }
 
-    if (project.clientId !== userId) {
+    if (project.clientId !== appUser.id && appUser.role !== 'admin') {
       throw new ForbiddenException('Você não é o dono deste projeto');
     }
 
@@ -185,7 +279,7 @@ export class ProjectsService {
    * Atualiza o status do projeto usando a state machine.
    * Valida a transição antes de executar.
    */
-  async updateStatus(id: string, userId: string, dto: UpdateStatusDto) {
+  async updateStatus(id: string, userKey: string, dto: UpdateStatusDto) {
     const project = await this.prisma.project.findUnique({
       where: { id },
     });
@@ -208,15 +302,14 @@ export class ProjectsService {
       );
     }
 
-    // Apenas o admin pode aprovar/rejeitar na validação
-    // Apenas o client pode submeter
-    // (regras de negócio podem ser expandidas)
-    const user = await this.prisma.user.findUnique({
-      where: { id: userId },
-    });
+    const appUser = await this.requireAppUser(userKey);
 
-    if (!user) {
-      throw new ForbiddenException('Usuário não encontrado');
+    if (event === 'READY') {
+      if (appUser.role !== 'admin') {
+        throw new ForbiddenException(
+          'Apenas administradores podem publicar uma obra para matching.',
+        );
+      }
     }
 
     // Atualizar status
@@ -241,7 +334,8 @@ export class ProjectsService {
   /**
    * Cliente avalia o trabalhador após o projeto (uma avaliação por projeto/cliente).
    */
-  async rateWorker(projectId: string, clientUserId: string, dto: RateProjectDto) {
+  async rateWorker(projectId: string, userKey: string, dto: RateProjectDto) {
+    const appUser = await this.requireAppUser(userKey);
     const project = await this.prisma.project.findUnique({
       where: { id: projectId },
       include: { contract: true },
@@ -251,7 +345,7 @@ export class ProjectsService {
       throw new NotFoundException('Projeto não encontrado');
     }
 
-    if (project.clientId !== clientUserId) {
+    if (project.clientId !== appUser.id) {
       throw new ForbiddenException('Apenas o cliente do projeto pode avaliar');
     }
 
@@ -259,26 +353,50 @@ export class ProjectsService {
       throw new BadRequestException('Projeto sem contrato/worker para avaliar');
     }
 
-    const existing = await this.prisma.workerRating.findFirst({
-      where: { projectId, userId: clientUserId },
-    });
-
-    if (existing) {
-      throw new BadRequestException('Você já avaliou este projeto');
+    if (project.status !== ProjectStatus.closed) {
+      throw new BadRequestException(
+        'Só é possível avaliar após o projeto estar encerrado.',
+      );
     }
 
-    const rating = await this.prisma.workerRating.create({
-      data: {
-        workerId: project.contract.workerId,
-        projectId,
-        userId: clientUserId,
-        score: dto.score,
-        feedback: dto.feedback,
-      },
+    const workerId = project.contract.workerId;
+
+    const rating = await this.prisma.$transaction(async (tx) => {
+      const existing = await tx.workerRating.findFirst({
+        where: { projectId, userId: appUser.id },
+      });
+
+      if (existing) {
+        throw new BadRequestException('Você já avaliou este projeto');
+      }
+
+      const created = await tx.workerRating.create({
+        data: {
+          workerId,
+          projectId,
+          userId: appUser.id,
+          score: dto.score,
+          feedback: dto.feedback,
+        },
+      });
+
+      const agg = await tx.workerRating.aggregate({
+        where: { workerId },
+        _avg: { score: true },
+      });
+
+      const avgScore = agg._avg.score ?? dto.score;
+
+      await tx.worker.update({
+        where: { id: workerId },
+        data: { rating: avgScore },
+      });
+
+      return created;
     });
 
     this.eventEmitter.emit('worker.rated', {
-      workerId: project.contract.workerId,
+      workerId,
       projectId,
       score: dto.score,
     });
@@ -289,7 +407,8 @@ export class ProjectsService {
   /**
    * Remove um projeto (apenas draft).
    */
-  async remove(id: string, userId: string) {
+  async remove(id: string, userKey: string) {
+    const appUser = await this.requireAppUser(userKey);
     const project = await this.prisma.project.findUnique({
       where: { id },
     });
@@ -298,7 +417,7 @@ export class ProjectsService {
       throw new NotFoundException('Projeto não encontrado');
     }
 
-    if (project.clientId !== userId) {
+    if (project.clientId !== appUser.id && appUser.role !== 'admin') {
       throw new ForbiddenException('Você não é o dono deste projeto');
     }
 

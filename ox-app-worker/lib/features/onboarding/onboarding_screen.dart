@@ -5,6 +5,7 @@ import '../../core/auth/token_storage.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_gradients.dart';
 import '../../core/widgets/ox_button.dart';
+import '../../l10n/app_localizations.dart';
 
 class _OnboardingPage {
   const _OnboardingPage({
@@ -17,27 +18,6 @@ class _OnboardingPage {
   final String subtitle;
 }
 
-final _pages = [
-  const _OnboardingPage(
-    icon: LucideIcons.briefcase,
-    title: 'Oportunidades para você',
-    subtitle:
-        'Veja projetos e convites compatíveis com suas habilidades e disponibilidade.',
-  ),
-  const _OnboardingPage(
-    icon: LucideIcons.clipboardCheck,
-    title: 'Execute com clareza',
-    subtitle:
-        'Acompanhe fases, envie evidências e mantenha o cliente informado.',
-  ),
-  const _OnboardingPage(
-    icon: LucideIcons.wallet,
-    title: 'Receba com segurança',
-    subtitle:
-        'Pagamentos via Stripe Connect após a aprovação de cada fase pelo cliente.',
-  ),
-];
-
 class OnboardingScreen extends StatefulWidget {
   const OnboardingScreen({super.key});
 
@@ -49,8 +29,26 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   final _controller = PageController();
   int _page = 0;
 
-  void _next() {
-    if (_page < _pages.length - 1) {
+  List<_OnboardingPage> _buildPages(AppLocalizations t) => [
+        _OnboardingPage(
+          icon: LucideIcons.briefcase,
+          title: t.onboardingPage1Title,
+          subtitle: t.onboardingPage1Subtitle,
+        ),
+        _OnboardingPage(
+          icon: LucideIcons.clipboardCheck,
+          title: t.onboardingPage2Title,
+          subtitle: t.onboardingPage2Subtitle,
+        ),
+        _OnboardingPage(
+          icon: LucideIcons.wallet,
+          title: t.onboardingPage3Title,
+          subtitle: t.onboardingPage3Subtitle,
+        ),
+      ];
+
+  void _next(int pageCount) {
+    if (_page < pageCount - 1) {
       _controller.nextPage(
         duration: const Duration(milliseconds: 300),
         curve: Curves.easeInOut,
@@ -73,6 +71,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final t = AppLocalizations.of(context)!;
+    final pages = _buildPages(t);
+
     return Scaffold(
       body: Container(
         decoration: const BoxDecoration(gradient: AppGradients.hero),
@@ -83,9 +84,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                 alignment: Alignment.topRight,
                 child: TextButton(
                   onPressed: _finish,
-                  child: const Text(
-                    'Pular',
-                    style: TextStyle(
+                  child: Text(
+                    t.onboardingSkip,
+                    style: const TextStyle(
                       color: AppColors.textSecondary,
                       fontFamily: 'Inter',
                     ),
@@ -96,15 +97,15 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                 child: PageView.builder(
                   controller: _controller,
                   onPageChanged: (i) => setState(() => _page = i),
-                  itemCount: _pages.length,
+                  itemCount: pages.length,
                   itemBuilder: (context, i) =>
-                      _OnboardingPageWidget(page: _pages[i]),
+                      _OnboardingPageWidget(page: pages[i]),
                 ),
               ),
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: List.generate(
-                  _pages.length,
+                  pages.length,
                   (i) => AnimatedContainer(
                     duration: const Duration(milliseconds: 200),
                     width: i == _page ? 24 : 8,
@@ -121,8 +122,8 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 24),
                 child: OxButton(
-                  label: _page == _pages.length - 1 ? 'Começar' : 'Continuar',
-                  onPressed: _next,
+                  label: _page == pages.length - 1 ? t.onboardingStart : t.onboardingContinue,
+                  onPressed: () => _next(pages.length),
                 ),
               ),
               const SizedBox(height: 32),

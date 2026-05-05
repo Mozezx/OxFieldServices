@@ -6,6 +6,7 @@ import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_gradients.dart';
 import '../../core/widgets/ox_button.dart';
 import '../../core/widgets/ox_input.dart';
+import '../../l10n/app_localizations.dart';
 import 'auth_controller.dart';
 
 class ForgotPasswordScreen extends ConsumerStatefulWidget {
@@ -103,6 +104,7 @@ class _FormView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final t = AppLocalizations.of(context)!;
     return Form(
       key: formKey,
       child: Column(
@@ -117,9 +119,9 @@ class _FormView extends StatelessWidget {
             child: const Icon(LucideIcons.keyRound, size: 36, color: AppColors.accent),
           ),
           const SizedBox(height: 24),
-          const Text(
-            'Esqueceu a senha?',
-            style: TextStyle(
+          Text(
+            t.forgotPasswordTitle,
+            style: const TextStyle(
               fontSize: 24,
               fontWeight: FontWeight.w700,
               color: AppColors.textPrimary,
@@ -127,10 +129,10 @@ class _FormView extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 8),
-          const Text(
-            'Digite seu e-mail e enviaremos um\nlink para redefinir sua senha.',
+          Text(
+            t.forgotPasswordSubtitle,
             textAlign: TextAlign.center,
-            style: TextStyle(
+            style: const TextStyle(
               color: AppColors.textSecondary,
               fontFamily: 'Inter',
               height: 1.5,
@@ -138,19 +140,19 @@ class _FormView extends StatelessWidget {
           ),
           const SizedBox(height: 40),
           OxInput(
-            label: 'E-mail',
+            label: t.emailLabel,
             controller: emailCtrl,
             keyboardType: TextInputType.emailAddress,
             prefixIcon: LucideIcons.mail,
             validator: (v) {
-              if (v == null || v.isEmpty) return 'Campo obrigatório';
-              if (!v.contains('@')) return 'E-mail inválido';
+              if (v == null || v.isEmpty) return t.errorFieldRequired;
+              if (!v.contains('@')) return t.errorInvalidEmail;
               return null;
             },
           ),
           const SizedBox(height: 24),
           OxButton(
-            label: 'Enviar link de redefinição',
+            label: t.forgotPasswordSendButton,
             isLoading: isLoading,
             onPressed: onSubmit,
           ),
@@ -166,6 +168,7 @@ class _SuccessView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final t = AppLocalizations.of(context)!;
     return Column(
       children: [
         Container(
@@ -178,9 +181,9 @@ class _SuccessView extends StatelessWidget {
           child: const Icon(LucideIcons.mailCheck, size: 36, color: AppColors.accent),
         ),
         const SizedBox(height: 24),
-        const Text(
-          'E-mail enviado!',
-          style: TextStyle(
+        Text(
+          t.forgotPasswordSuccessTitle,
+          style: const TextStyle(
             fontSize: 24,
             fontWeight: FontWeight.w700,
             color: AppColors.textPrimary,
@@ -189,7 +192,7 @@ class _SuccessView extends StatelessWidget {
         ),
         const SizedBox(height: 8),
         Text(
-          'Verifique sua caixa de entrada em\n$email\ne clique no link para redefinir sua senha.',
+          t.forgotPasswordSuccessBody(email),
           textAlign: TextAlign.center,
           style: const TextStyle(
             color: AppColors.textSecondary,
@@ -199,7 +202,7 @@ class _SuccessView extends StatelessWidget {
         ),
         const SizedBox(height: 40),
         OxButton(
-          label: 'Voltar ao login',
+          label: t.forgotPasswordBackToLogin,
           onPressed: () => context.go('/login'),
         ),
       ],

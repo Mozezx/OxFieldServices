@@ -1,4 +1,5 @@
-﻿import 'package:flutter/material.dart';
+import 'package:cached_network_image/cached_network_image.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lucide_flutter/lucide_flutter.dart';
@@ -6,6 +7,7 @@ import '../../core/theme/app_colors.dart';
 import '../../core/widgets/ox_app_bar.dart';
 import '../../core/widgets/ox_button.dart';
 import 'phase_provider.dart';
+import '../../l10n/app_localizations.dart';
 
 class ValidatePhaseScreen extends ConsumerWidget {
   const ValidatePhaseScreen({super.key, required this.phaseId});
@@ -14,21 +16,23 @@ class ValidatePhaseScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final l = AppLocalizations.of(context)!;
     final phaseAsync = ref.watch(phaseDetailProvider(phaseId));
     final validationState = ref.watch(phaseValidationProvider);
 
-    ref.listen(phaseValidationProvider, (_, next) {
-      if (next is AsyncData) {
+    ref.listen(phaseValidationProvider, (previous, next) {
+      final isValidationRequest = previous is AsyncLoading;
+      if (isValidationRequest && next is AsyncData) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Fase validada com sucesso!'),
+          SnackBar(
+            content: Text(l.validatePhaseSuccess),
             backgroundColor: AppColors.accent,
           ),
         );
         context.pop();
         context.pop();
       }
-      if (next is AsyncError) {
+      if (isValidationRequest && next is AsyncError) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(next.error.toString()),
@@ -39,7 +43,7 @@ class ValidatePhaseScreen extends ConsumerWidget {
     });
 
     return Scaffold(
-      appBar: const OxAppBar(title: 'Validar Fase'),
+      appBar: OxAppBar(title: l.validatePhaseTitle),
       body: phaseAsync.when(
         loading: () => const Center(child: CircularProgressIndicator(color: AppColors.accent)),
         error: (e, _) => Center(child: Text('Erro: $e', style: const TextStyle(color: AppColors.error))),
@@ -49,7 +53,7 @@ class ValidatePhaseScreen extends ConsumerWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'Validar — Fase ${phase.order}: ${phase.name}',
+                l.validatePhaseDetailTitle(phase.order, phase.name),
                 style: const TextStyle(
                   color: AppColors.textPrimary,
                   fontSize: 20,
@@ -59,10 +63,9 @@ class ValidatePhaseScreen extends ConsumerWidget {
               ),
               const SizedBox(height: 24),
 
-              // Evidence section
-              const Text(
-                'EVIDÊNCIAS DO TRABALHADOR',
-                style: TextStyle(
+              Text(
+                l.validatePhaseEvidenceSection,
+                style: const TextStyle(
                   color: AppColors.textSecondary,
                   fontSize: 12,
                   fontWeight: FontWeight.w600,
@@ -80,15 +83,49 @@ class ValidatePhaseScreen extends ConsumerWidget {
                     borderRadius: BorderRadius.circular(12),
                     border: Border.all(color: AppColors.divider),
                   ),
-                  child: const Column(
+                  child: Column(
                     children: [
-                      Icon(LucideIcons.alertCircle, color: AppColors.warning, size: 32),
-                      SizedBox(height: 8),
+                      const Icon(LucideIcons.alertCircle, color: AppColors.warning, size: 32),
+                      const SizedBox(height: 8),
                       Text(
-                        'Nenhuma evidência enviada',
-                        style: TextStyle(color: AppColors.textSecondary, fontFamily: 'Inter'),
+                        l.validatePhaseNoEvidence,
+                        style: const TextStyle(color: AppColors.textSecondary, fontFamily: 'Inter'),
                       ),
                     ],
+                  ),
+                )
+              else if (phase.evidences.length == 1)
+                Center(
+                  child: GestureDetector(
+                    onTap: () => _showFullscreen(context, phase.evidences.first.url),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(12),
+                      child: SizedBox(
+                        width: 240,
+                        height: 180,
+                        child: CachedNetworkImage(
+                          imageUrl: phase.evidences.first.url,
+                          fit: BoxFit.cover,
+                          placeholder: (_, __) => Container(
+                            color: AppColors.surface2,
+                            child: const Center(
+                              child: SizedBox(
+                                width: 24,
+                                height: 24,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: AppColors.accent,
+                                ),
+                              ),
+                            ),
+                          ),
+                          errorWidget: (_, __, ___) => Container(
+                            color: AppColors.surface2,
+                            child: const Icon(LucideIcons.image, color: AppColors.textSecondary),
+                          ),
+                        ),
+                      ),
+                    ),
                   ),
                 )
               else
@@ -108,10 +145,23 @@ class ValidatePhaseScreen extends ConsumerWidget {
                       child: Stack(
                         fit: StackFit.expand,
                         children: [
-                          Image.network(
-                            phase.evidences[i].url,
+                          CachedNetworkImage(
+                            imageUrl: phase.evidences[i].url,
                             fit: BoxFit.cover,
-                            errorBuilder: (_, __, ___) => Container(
+                            placeholder: (_, __) => Container(
+                              color: AppColors.surface2,
+                              child: const Center(
+                                child: SizedBox(
+                                  width: 24,
+                                  height: 24,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: AppColors.accent,
+                                  ),
+                                ),
+                              ),
+                            ),
+                            errorWidget: (_, __, ___) => Container(
                               color: AppColors.surface2,
                               child: const Icon(LucideIcons.image, color: AppColors.textSecondary),
                             ),
@@ -133,7 +183,6 @@ class ValidatePhaseScreen extends ConsumerWidget {
 
               const SizedBox(height: 32),
 
-              // Warning
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
@@ -147,7 +196,7 @@ class ValidatePhaseScreen extends ConsumerWidget {
                     const SizedBox(width: 12),
                     Expanded(
                       child: Text(
-                        'Ao aprovar, € ${phase.amount.toStringAsFixed(2)} será liberado ao trabalhador.',
+                        l.validatePhaseAmountWarning(phase.amount.toStringAsFixed(2)),
                         style: const TextStyle(
                           color: AppColors.textSecondary,
                           fontSize: 13,
@@ -161,7 +210,7 @@ class ValidatePhaseScreen extends ConsumerWidget {
               const SizedBox(height: 24),
 
               OxButton(
-                label: '✓ Aprovar Fase',
+                label: l.validatePhaseApproveAction,
                 isLoading: validationState is AsyncLoading,
                 onPressed: phase.evidences.isEmpty
                     ? null
@@ -169,7 +218,7 @@ class ValidatePhaseScreen extends ConsumerWidget {
               ),
               const SizedBox(height: 12),
               OxButton(
-                label: '✕ Rejeitar Fase',
+                label: l.validatePhaseRejectAction,
                 variant: OxButtonVariant.danger,
                 isLoading: validationState is AsyncLoading,
                 onPressed: () => _confirmValidation(context, ref, false),
@@ -184,50 +233,75 @@ class ValidatePhaseScreen extends ConsumerWidget {
   void _showFullscreen(BuildContext context, String url) {
     showDialog(
       context: context,
-      builder: (_) => Dialog(
+      builder: (dialogContext) => Dialog(
         backgroundColor: Colors.black,
         insetPadding: EdgeInsets.zero,
-        child: Stack(
-          children: [
-            Center(child: Image.network(url, fit: BoxFit.contain)),
-            Positioned(
-              top: 16,
-              right: 16,
-              child: IconButton(
-                icon: const Icon(LucideIcons.x, color: Colors.white),
-                onPressed: () => Navigator.pop(context),
+        child: SizedBox.expand(
+          child: Stack(
+            children: [
+              Center(
+                child: InteractiveViewer(
+                  child: CachedNetworkImage(
+                    imageUrl: url,
+                    fit: BoxFit.contain,
+                    placeholder: (_, __) => const Center(
+                      child: CircularProgressIndicator(color: AppColors.accent),
+                    ),
+                    errorWidget: (_, __, ___) => const Icon(
+                      LucideIcons.image,
+                      color: Colors.white54,
+                      size: 48,
+                    ),
+                  ),
+                ),
               ),
-            ),
-          ],
+              SafeArea(
+                child: Align(
+                  alignment: Alignment.topRight,
+                  child: Padding(
+                    padding: const EdgeInsets.all(8),
+                    child: Material(
+                      color: Colors.black54,
+                      shape: const CircleBorder(),
+                      child: IconButton(
+                        icon: const Icon(LucideIcons.x, color: Colors.white),
+                        onPressed: () => Navigator.of(dialogContext).pop(),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
   }
 
   Future<void> _confirmValidation(BuildContext context, WidgetRef ref, bool approved) async {
+    final l = AppLocalizations.of(context)!;
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: AppColors.surface,
         title: Text(
-          approved ? 'Aprovar Fase?' : 'Rejeitar Fase?',
+          approved ? l.validatePhaseApproveConfirmTitle : l.validatePhaseRejectConfirmTitle,
           style: const TextStyle(color: AppColors.textPrimary, fontFamily: 'Inter'),
         ),
         content: Text(
-          approved
-              ? 'O pagamento da fase será liberado ao trabalhador.'
-              : 'O trabalhador deverá reenviar as evidências.',
+          approved ? l.validatePhaseApproveConfirmBody : l.validatePhaseRejectConfirmBody,
           style: const TextStyle(color: AppColors.textSecondary, fontFamily: 'Inter'),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Cancelar', style: TextStyle(color: AppColors.textSecondary)),
+            child: Text(l.commonCancel,
+                style: const TextStyle(color: AppColors.textSecondary)),
           ),
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),
             child: Text(
-              approved ? 'Aprovar' : 'Rejeitar',
+              approved ? l.validatePhaseApproveButton : l.validatePhaseRejectButton,
               style: TextStyle(
                 color: approved ? AppColors.accent : AppColors.error,
                 fontWeight: FontWeight.w600,

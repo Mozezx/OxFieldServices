@@ -31,8 +31,7 @@ class SavedCard {
       );
 }
 
-final paymentMethodsProvider =
-    FutureProvider.autoDispose<List<SavedCard>>((ref) async {
+final paymentMethodsProvider = FutureProvider<List<SavedCard>>((ref) async {
   final api = ref.watch(apiClientProvider);
   final res = await api.dio.get(ApiEndpoints.paymentsMethods);
   final list = (res.data as List<dynamic>);

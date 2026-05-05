@@ -6,6 +6,7 @@ import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_gradients.dart';
 import '../../core/widgets/ox_button.dart';
 import '../../core/widgets/ox_input.dart';
+import '../../l10n/app_localizations.dart';
 import 'auth_controller.dart';
 
 class RegisterScreen extends ConsumerStatefulWidget {
@@ -35,6 +36,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final t = AppLocalizations.of(context)!;
     final authState = ref.watch(authControllerProvider);
 
     ref.listen(authControllerProvider, (_, next) {
@@ -67,9 +69,9 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                     onPressed: widget.onBack,
                   ),
                   const SizedBox(height: 16),
-                  const Text(
-                    'Criar conta de trabalhador',
-                    style: TextStyle(
+                  Text(
+                    t.registerTitle,
+                    style: const TextStyle(
                       fontSize: 24,
                       fontWeight: FontWeight.w700,
                       color: AppColors.textPrimary,
@@ -78,49 +80,48 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                   ),
                   const SizedBox(height: 32),
                   OxInput(
-                    label: 'Nome completo',
+                    label: t.registerNameLabel,
                     controller: _nameCtrl,
                     prefixIcon: LucideIcons.user,
                     validator: (v) =>
-                        v == null || v.isEmpty ? 'Campo obrigatorio' : null,
+                        v == null || v.isEmpty ? t.errorFieldRequired : null,
                   ),
                   const SizedBox(height: 16),
                   OxInput(
-                    label: 'E-mail',
+                    label: t.emailLabel,
                     controller: _emailCtrl,
                     keyboardType: TextInputType.emailAddress,
                     prefixIcon: LucideIcons.mail,
                     validator: (v) {
-                      if (v == null || v.isEmpty) return 'Campo obrigatorio';
-                      if (!v.contains('@')) return 'E-mail invalido';
+                      if (v == null || v.isEmpty) return t.errorFieldRequired;
+                      if (!v.contains('@')) return t.errorInvalidEmail;
                       return null;
                     },
                   ),
                   const SizedBox(height: 16),
                   OxInput(
-                    label: 'Senha',
+                    label: t.passwordLabel,
                     controller: _passwordCtrl,
                     obscureText: true,
                     prefixIcon: LucideIcons.lock,
                     validator: (v) {
-                      if (v == null || v.isEmpty) return 'Campo obrigatorio';
-                      if (v.length < 6) return 'Minimo 6 caracteres';
+                      if (v == null || v.isEmpty) return t.errorFieldRequired;
+                      if (v.length < 6) return t.errorPasswordShort;
                       return null;
                     },
                   ),
                   const SizedBox(height: 16),
                   OxInput(
-                    label: 'Confirmar senha',
+                    label: t.registerConfirmPasswordLabel,
                     controller: _confirmCtrl,
                     obscureText: true,
                     prefixIcon: LucideIcons.lockKeyhole,
                     validator: (v) {
-                      if (v != _passwordCtrl.text) return 'Senhas nao conferem';
+                      if (v != _passwordCtrl.text) return t.errorPasswordMismatch;
                       return null;
                     },
                   ),
                   const SizedBox(height: 8),
-                  // Role é fixo como 'worker' neste app
                   Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
@@ -129,14 +130,14 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                       border: Border.all(
                           color: AppColors.accent.withValues(alpha: 0.3)),
                     ),
-                    child: const Row(
+                    child: Row(
                       children: [
-                        Icon(LucideIcons.hardHat,
+                        const Icon(LucideIcons.hardHat,
                             color: AppColors.accent, size: 18),
-                        SizedBox(width: 10),
+                        const SizedBox(width: 10),
                         Text(
-                          'Conta de trabalhador',
-                          style: TextStyle(
+                          t.registerWorkerBadge,
+                          style: const TextStyle(
                             color: AppColors.accent,
                             fontWeight: FontWeight.w600,
                             fontFamily: 'Inter',
@@ -148,7 +149,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                   ),
                   const SizedBox(height: 32),
                   OxButton(
-                    label: 'Criar conta',
+                    label: t.registerButton,
                     isLoading: authState is AsyncLoading,
                     onPressed: () {
                       if (_formKey.currentState!.validate()) {
@@ -164,9 +165,9 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                   Center(
                     child: GestureDetector(
                       onTap: widget.onBack,
-                      child: const Text(
-                        'Ja tenho conta',
-                        style: TextStyle(
+                      child: Text(
+                        t.registerHasAccount,
+                        style: const TextStyle(
                           color: AppColors.accent,
                           fontFamily: 'Inter',
                           fontWeight: FontWeight.w600,

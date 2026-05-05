@@ -1,4 +1,8 @@
-import { Injectable, InternalServerErrorException } from '@nestjs/common';
+import {
+  Injectable,
+  InternalServerErrorException,
+  Logger,
+} from '@nestjs/common';
 import Stripe from 'stripe';
 import { PrismaService } from '../../prisma/prisma.service';
 
@@ -6,15 +10,16 @@ type StripeClient = InstanceType<typeof Stripe>;
 
 @Injectable()
 export class StripeService {
+  private readonly logger = new Logger(StripeService.name);
   readonly client: StripeClient;
 
-  /** Mesma moeda em PaymentIntent + transfers (BR Connect exige BRL; EUR falha com FX/cross-border). */
+  /** Mesma moeda em PaymentIntent + transfers; default EUR (use STRIPE_CHARGE_CURRENCY=brl para Connect Brasil). */
   readonly chargeCurrency: string;
 
   constructor(private prisma: PrismaService) {
     this.client = new Stripe(process.env.STRIPE_SECRET_KEY!);
     this.chargeCurrency = (
-      process.env.STRIPE_CHARGE_CURRENCY ?? 'brl'
+      process.env.STRIPE_CHARGE_CURRENCY ?? 'eur'
     ).toLowerCase();
   }
 
@@ -45,7 +50,24 @@ export class StripeService {
   async getOrCreateCustomer(userId: string): Promise<string> {
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
     if (!user) throw new InternalServerErrorException('Usuário não encontrado');
-    if (user.stripeCustomerId) return user.stripeCustomerId;
+
+    let existingId = user.stripeCustomerId;
+    if (existingId) {
+      try {
+        await this.client.customers.retrieve(existingId);
+        return existingId;
+      } catch (err) {
+        const missing =
+          err instanceof Stripe.errors.StripeInvalidRequestError &&
+          err.code === 'resource_missing';
+        if (!missing) throw err;
+        await this.prisma.user.update({
+          where: { id: userId },
+          data: { stripeCustomerId: null },
+        });
+        existingId = null;
+      }
+    }
 
     const customer = await this.client.customers.create({
       email: user.email,
@@ -165,16 +187,24 @@ export class StripeService {
     };
   }
 
-  async createOnboardingLink(
+  /**
+   * Account Link hospedado pelo Stripe: onboarding inicial ou atualização (conta restrita / KYC).
+   * `account_update` quando já houve submissão de dados; caso contrário `account_onboarding`.
+   */
+  async createConnectAccountLink(
     stripeAccountId: string,
     returnUrl: string,
     refreshUrl: string,
   ): Promise<string> {
+    const account = await this.client.accounts.retrieve(stripeAccountId);
+    const linkType: 'account_onboarding' | 'account_update' =
+      account.details_submitted ? 'account_update' : 'account_onboarding';
+
     const link = await this.client.accountLinks.create({
       account: stripeAccountId,
       refresh_url: refreshUrl,
       return_url: returnUrl,
-      type: 'account_onboarding',
+      type: linkType,
     });
     return link.url;
   }
@@ -202,6 +232,24 @@ export class StripeService {
     return this.client.paymentIntents.capture(paymentIntentId);
   }
 
+  /**
+   * Moeda da balance transaction da charge — obrigatória em Transfer.currency quando se usa source_transaction.
+   * Stripe exige que Transfer.currency === balance_transaction.currency (NÃO charge.currency: a moeda
+   * de apresentação pode diferir da moeda em que a plataforma efetivamente liquida o saldo).
+   * Se divergir de STRIPE_CHARGE_CURRENCY há inconsistência de config/dados, mas usamos sempre a
+   * moeda do balance_transaction porque é o único valor aceito pelo Stripe no transfer.
+   */
+  async getChargeCurrency(chargeId: string): Promise<string> {
+    const charge = await this.client.charges.retrieve(chargeId, {
+      expand: ['balance_transaction'],
+    });
+    const bt = charge.balance_transaction;
+    if (bt && typeof bt === 'object' && 'currency' in bt) {
+      return bt.currency.toLowerCase();
+    }
+    return charge.currency.toLowerCase();
+  }
+
   // Split: 70% worker / 30% OX (plataforma retém sem transfer explícito)
   async releaseSplitPayment(escrowTxnId: string): Promise<void> {
     const escrow = await this.prisma.escrowTxn.findUnique({
@@ -217,7 +265,14 @@ export class StripeService {
 
     if (!escrow.stripeSourceChargeId) {
       throw new InternalServerErrorException(
-        'Escrow sem stripeSourceChargeId — transfers Connect ao Brasil exigem source_transaction (charge do pagamento)',
+        'Escrow sem stripeSourceChargeId — transfers Connect com source_transaction exigem o id da charge (ch_)',
+      );
+    }
+
+    const transferCurrency = await this.getChargeCurrency(escrow.stripeSourceChargeId);
+    if (transferCurrency !== this.chargeCurrency) {
+      this.logger.warn(
+        `releaseSplitPayment: charge currency (${transferCurrency}) ≠ STRIPE_CHARGE_CURRENCY (${this.chargeCurrency}) — transfer usa a moeda da charge`,
       );
     }
 
@@ -228,7 +283,7 @@ export class StripeService {
     const transfer = await this.client.transfers.create(
       {
         amount: workerCents,
-        currency: this.chargeCurrency,
+        currency: transferCurrency,
         destination: escrow.contract.worker.stripeAccountId,
         source_transaction: escrow.stripeSourceChargeId,
         metadata: { escrowTxnId, type: 'worker' },

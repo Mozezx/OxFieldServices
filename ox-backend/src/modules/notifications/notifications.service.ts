@@ -2,6 +2,9 @@ import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import type { NotificationType } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
+import { AppSyncService } from './app-sync.service';
+import { scopesForNotificationType } from './app-sync.scopes';
+import { NotificationCopyService } from './notification-copy.service';
 import * as admin from 'firebase-admin';
 
 export type CreateNotificationInput = {
@@ -33,6 +36,8 @@ export class NotificationsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly configService: ConfigService,
+    private readonly notificationCopy: NotificationCopyService,
+    private readonly appSync: AppSyncService,
   ) {
     const projectId = this.configService.get<string>('FIREBASE_PROJECT_ID');
     const privateKey = this.configService
@@ -62,21 +67,39 @@ export class NotificationsService {
    * Persiste no banco e envia FCM para todos os DeviceTokens (+ legacy fcmToken).
    */
   async create(input: CreateNotificationInput) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: input.userId },
+      select: { preferredLocale: true },
+    });
+    const dataObj =
+      input.data && typeof input.data === 'object'
+        ? (input.data as Record<string, unknown>)
+        : null;
+    const localized = this.notificationCopy.format(
+      input.type,
+      user?.preferredLocale,
+      dataObj,
+      { title: input.title, body: input.body },
+    );
+
     const row = await this.prisma.notification.create({
       data: {
         userId: input.userId,
         type: input.type,
-        title: input.title,
-        body: input.body,
+        title: localized.title,
+        body: localized.body,
         entityType: input.entityType ?? undefined,
         entityId: input.entityId ?? undefined,
         data: input.data === undefined ? undefined : (input.data as object),
       },
     });
 
+    const syncScopes = scopesForNotificationType(input.type);
+    await this.appSync.publishInvalidateForUser(input.userId, syncScopes);
+
     await this.pushToUser(input.userId, {
-      title: input.title,
-      body: input.body,
+      title: localized.title,
+      body: localized.body,
       data: this.buildFcmData(input.type, input.entityType, input.entityId, input.data),
     });
 
@@ -187,6 +210,7 @@ export class NotificationsService {
       type,
       entityType: entityType ?? '',
       entityId: entityId ?? '',
+      scopes: scopesForNotificationType(type).join(','),
     };
     if (extra && typeof extra === 'object') {
       data.payload = JSON.stringify(extra);

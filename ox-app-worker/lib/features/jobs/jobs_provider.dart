@@ -2,6 +2,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/api/api_client.dart';
 import '../../core/api/api_endpoints.dart';
 
+/// Accept job was called but the admin has not created a contract for this project yet.
+class NoContractForProjectException implements Exception {
+  const NoContractForProjectException();
+}
+
 // --- Models ---
 
 class JobPhaseModel {
@@ -133,8 +138,7 @@ List<dynamic> _extractList(dynamic body) {
 
 // --- Available jobs provider (for matching candidates) ---
 
-final availableJobsProvider =
-    FutureProvider.autoDispose<List<JobModel>>((ref) async {
+final availableJobsProvider = FutureProvider<List<JobModel>>((ref) async {
   final api = ref.watch(apiClientProvider);
   // Busca projetos em status 'matched' sem contrato ainda (disponíveis)
   final res = await api.dio.get(
@@ -149,8 +153,7 @@ final availableJobsProvider =
 // --- Active worker jobs ---
 // Inclui contract_signed (worker pode aceitar) + active_escrow + in_execution
 
-final activeJobsProvider =
-    FutureProvider.autoDispose<List<JobModel>>((ref) async {
+final activeJobsProvider = FutureProvider<List<JobModel>>((ref) async {
   final api = ref.watch(apiClientProvider);
   final res = await api.dio.get(
     ApiEndpoints.projects,
@@ -166,7 +169,7 @@ final activeJobsProvider =
 // --- Job detail ---
 
 final jobDetailProvider =
-    FutureProvider.autoDispose.family<JobModel, String>((ref, id) async {
+    FutureProvider.family<JobModel, String>((ref, id) async {
   final api = ref.watch(apiClientProvider);
   final res = await api.dio.get(ApiEndpoints.projectById(id));
   return JobModel.fromJson(res.data as Map<String, dynamic>);
@@ -192,9 +195,7 @@ class JobActionNotifier extends AsyncNotifier<void> {
           await api.dio.get(ApiEndpoints.contractByProject(projectId));
       final contract = contractRes.data as Map<String, dynamic>?;
       if (contract == null || contract['id'] == null) {
-        throw Exception(
-          'Nenhum contrato encontrado para este projeto. Aguarde a atribuição do admin.',
-        );
+        throw const NoContractForProjectException();
       }
 
       final contractId = contract['id'] as String;

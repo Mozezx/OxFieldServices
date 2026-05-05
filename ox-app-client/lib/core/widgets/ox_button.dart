@@ -31,17 +31,17 @@ class OxButton extends StatelessWidget {
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
         if (isLoading)
-          const SizedBox(
+          SizedBox(
             width: 18,
             height: 18,
             child: CircularProgressIndicator(
               strokeWidth: 2,
-              color: AppColors.primary,
+              color: _textColor,
             ),
           )
         else ...[
           if (icon != null) ...[
-            Icon(icon, size: 18),
+            Icon(icon, size: 18, color: _textColor),
             const SizedBox(width: 8),
           ],
           Text(
@@ -126,7 +126,8 @@ class OxButton extends StatelessWidget {
   Color get _textColor {
     switch (variant) {
       case OxButtonVariant.primary:
-        return AppColors.primary;
+        // Light text on green gradient (primary is dark teal and has poor contrast)
+        return AppColors.textPrimary;
       case OxButtonVariant.danger:
         return AppColors.error;
       case OxButtonVariant.secondary:

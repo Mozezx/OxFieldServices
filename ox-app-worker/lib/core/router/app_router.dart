@@ -64,43 +64,75 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/reset-password',
         builder: (context, state) => const ResetPasswordScreen(),
       ),
-      ShellRoute(
-        builder: (context, state, child) => MainShell(child: child),
-        routes: [
-          GoRoute(
-            path: '/home',
-            builder: (context, state) => const JobsDashboardScreen(),
+      StatefulShellRoute.indexedStack(
+        builder: (context, state, navigationShell) {
+          return MainShell(navigationShell: navigationShell);
+        },
+        branches: [
+          StatefulShellBranch(
+            routes: [
+              ShellRoute(
+                builder: (context, state, child) => child,
+                routes: [
+                  GoRoute(
+                    path: '/home',
+                    builder: (context, state) => const JobsDashboardScreen(),
+                  ),
+                  GoRoute(
+                    path: '/jobs/:id',
+                    builder: (context, state) =>
+                        JobDetailScreen(projectId: state.pathParameters['id']!),
+                  ),
+                  GoRoute(
+                    path: '/notifications',
+                    builder: (context, state) =>
+                        const NotificationsScreen(),
+                  ),
+                ],
+              ),
+            ],
           ),
-          GoRoute(
-            path: '/jobs/:id',
-            builder: (context, state) =>
-                JobDetailScreen(projectId: state.pathParameters['id']!),
+          StatefulShellBranch(
+            routes: [
+              ShellRoute(
+                builder: (context, state, child) => child,
+                routes: [
+                  GoRoute(
+                    path: '/execution',
+                    builder: (context, state) =>
+                        const ExecutionDashboardScreen(),
+                  ),
+                  GoRoute(
+                    path: '/execution/:phaseId',
+                    builder: (context, state) => PhaseExecutionScreen(
+                      phaseId: state.pathParameters['phaseId'],
+                    ),
+                  ),
+                  GoRoute(
+                    path: '/execution/:phaseId/upload',
+                    builder: (context, state) => UploadEvidenceScreen(
+                      phaseId: state.pathParameters['phaseId']!,
+                    ),
+                  ),
+                ],
+              ),
+            ],
           ),
-          GoRoute(
-            path: '/execution',
-            builder: (context, state) => const ExecutionDashboardScreen(),
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: '/payments',
+                builder: (context, state) => const PaymentsHistoryScreen(),
+              ),
+            ],
           ),
-          GoRoute(
-            path: '/execution/:phaseId',
-            builder: (context, state) =>
-                PhaseExecutionScreen(phaseId: state.pathParameters['phaseId']),
-          ),
-          GoRoute(
-            path: '/execution/:phaseId/upload',
-            builder: (context, state) =>
-                UploadEvidenceScreen(phaseId: state.pathParameters['phaseId']!),
-          ),
-          GoRoute(
-            path: '/notifications',
-            builder: (context, state) => const NotificationsScreen(),
-          ),
-          GoRoute(
-            path: '/payments',
-            builder: (context, state) => const PaymentsHistoryScreen(),
-          ),
-          GoRoute(
-            path: '/profile',
-            builder: (context, state) => const WorkerProfileScreen(),
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: '/profile',
+                builder: (context, state) => const WorkerProfileScreen(),
+              ),
+            ],
           ),
         ],
       ),

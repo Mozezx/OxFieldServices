@@ -7,20 +7,20 @@ import '../../core/widgets/ox_app_bar.dart';
 import '../../core/widgets/ox_badge.dart';
 import '../../core/widgets/ox_empty_state.dart';
 import '../../core/widgets/ox_loading.dart';
+import '../../l10n/app_localizations.dart';
 import '../jobs/jobs_provider.dart';
 import 'execution_provider.dart';
 
-/// Tela da aba "Em Execução" — lista todas as fases ativas dos jobs do worker
-/// agrupadas por job. Tap → abre a tela de execução da fase.
 class ExecutionDashboardScreen extends ConsumerWidget {
   const ExecutionDashboardScreen({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final t = AppLocalizations.of(context)!;
     final groupsAsync = ref.watch(activePhasesProvider);
 
     return Scaffold(
-      appBar: const OxAppBar(title: 'Em Execução'),
+      appBar: OxAppBar(title: t.executionTitle),
       body: RefreshIndicator(
         color: AppColors.accent,
         onRefresh: () async {
@@ -44,7 +44,7 @@ class ExecutionDashboardScreen extends ConsumerWidget {
               height: MediaQuery.of(context).size.height * 0.7,
               child: Center(
                 child: Text(
-                  'Erro ao carregar fases: $e',
+                  t.executionLoadError(e.toString()),
                   style: const TextStyle(color: AppColors.error),
                 ),
               ),
@@ -54,13 +54,12 @@ class ExecutionDashboardScreen extends ConsumerWidget {
             if (groups.isEmpty) {
               return ListView(
                 physics: const AlwaysScrollableScrollPhysics(),
-                children: const [
-                  SizedBox(height: 80),
+                children: [
+                  const SizedBox(height: 80),
                   OxEmptyState(
                     icon: LucideIcons.zap,
-                    title: 'Nenhuma fase em execução',
-                    subtitle:
-                        'Quando você aceitar um job e o cliente pagar, suas fases aparecerão aqui para você executar.',
+                    title: t.executionNoPhases,
+                    subtitle: t.executionNoPhasesSubtitle,
                   ),
                 ],
               );
@@ -95,7 +94,6 @@ class _JobGroupCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Job header
           Padding(
             padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
             child: Row(
@@ -136,7 +134,6 @@ class _JobGroupCard extends StatelessWidget {
             ),
           ),
           const Divider(color: AppColors.divider, height: 1),
-          // Phases
           ...group.activePhases
               .map((p) => _PhaseTile(job: group.job, phase: p)),
         ],
@@ -152,6 +149,7 @@ class _PhaseTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final t = AppLocalizations.of(context)!;
     return InkWell(
       onTap: () => context.push('/execution/${phase.id}'),
       child: Padding(
@@ -194,7 +192,7 @@ class _PhaseTile extends StatelessWidget {
                   Row(
                     children: [
                       OxBadge(
-                        label: _phaseStatusLabel(phase.status),
+                        label: _phaseStatusLabel(t, phase.status),
                         status: phaseStatusToBadge(phase.status),
                       ),
                       const SizedBox(width: 8),
@@ -220,18 +218,18 @@ class _PhaseTile extends StatelessWidget {
   }
 }
 
-String _phaseStatusLabel(String status) {
+String _phaseStatusLabel(AppLocalizations t, String status) {
   switch (status) {
     case 'in_progress':
-      return 'Em execução';
+      return t.phaseStatusInProgress;
     case 'evidence_uploaded':
-      return 'Evidências enviadas';
+      return t.phaseStatusEvidenceUploaded;
     case 'under_review':
-      return 'Em revisão';
+      return t.phaseStatusUnderReview;
     case 'rejected':
-      return 'Rejeitada';
+      return t.phaseStatusRejected;
     case 'pending':
     default:
-      return 'Aguardando início';
+      return t.phaseStatusAwaitingStart;
   }
 }

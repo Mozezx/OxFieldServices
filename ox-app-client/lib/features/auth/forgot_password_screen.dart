@@ -7,6 +7,7 @@ import '../../core/theme/app_gradients.dart';
 import '../../core/widgets/ox_button.dart';
 import '../../core/widgets/ox_input.dart';
 import 'auth_controller.dart';
+import '../../l10n/app_localizations.dart';
 
 class ForgotPasswordScreen extends ConsumerStatefulWidget {
   const ForgotPasswordScreen({super.key});
@@ -63,18 +64,20 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
                 child: Center(
                   child: SingleChildScrollView(
                     padding: const EdgeInsets.all(24),
-                    child: _sent ? _SuccessView(email: _emailCtrl.text.trim()) : _FormView(
-                      formKey: _formKey,
-                      emailCtrl: _emailCtrl,
-                      isLoading: authState is AsyncLoading,
-                      onSubmit: () {
-                        if (_formKey.currentState!.validate()) {
-                          ref.read(authControllerProvider.notifier).sendPasswordReset(
-                            _emailCtrl.text.trim(),
-                          );
-                        }
-                      },
-                    ),
+                    child: _sent
+                        ? _SuccessView(email: _emailCtrl.text.trim())
+                        : _FormView(
+                            formKey: _formKey,
+                            emailCtrl: _emailCtrl,
+                            isLoading: authState is AsyncLoading,
+                            onSubmit: () {
+                              if (_formKey.currentState!.validate()) {
+                                ref.read(authControllerProvider.notifier).sendPasswordReset(
+                                      _emailCtrl.text.trim(),
+                                    );
+                              }
+                            },
+                          ),
                   ),
                 ),
               ),
@@ -101,6 +104,7 @@ class _FormView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
     return Form(
       key: formKey,
       child: Column(
@@ -115,9 +119,9 @@ class _FormView extends StatelessWidget {
             child: const Icon(LucideIcons.keyRound, size: 36, color: AppColors.accent),
           ),
           const SizedBox(height: 24),
-          const Text(
-            'Esqueceu a senha?',
-            style: TextStyle(
+          Text(
+            l.loginForgotPassword,
+            style: const TextStyle(
               fontSize: 24,
               fontWeight: FontWeight.w700,
               color: AppColors.textPrimary,
@@ -125,10 +129,10 @@ class _FormView extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 8),
-          const Text(
-            'Digite seu e-mail e enviaremos um\nlink para redefinir sua senha.',
+          Text(
+            l.forgotPasswordSubtitle,
             textAlign: TextAlign.center,
-            style: TextStyle(
+            style: const TextStyle(
               color: AppColors.textSecondary,
               fontFamily: 'Inter',
               height: 1.5,
@@ -136,19 +140,19 @@ class _FormView extends StatelessWidget {
           ),
           const SizedBox(height: 40),
           OxInput(
-            label: 'E-mail',
+            label: l.loginEmailLabel,
             controller: emailCtrl,
             keyboardType: TextInputType.emailAddress,
             prefixIcon: LucideIcons.mail,
             validator: (v) {
-              if (v == null || v.isEmpty) return 'Campo obrigatório';
-              if (!v.contains('@')) return 'E-mail inválido';
+              if (v == null || v.isEmpty) return l.errorFieldRequired;
+              if (!v.contains('@')) return l.errorInvalidEmail;
               return null;
             },
           ),
           const SizedBox(height: 24),
           OxButton(
-            label: 'Enviar link de redefinição',
+            label: l.forgotPasswordSendButton,
             isLoading: isLoading,
             onPressed: onSubmit,
           ),
@@ -164,6 +168,7 @@ class _SuccessView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
     return Column(
       children: [
         Container(
@@ -176,9 +181,9 @@ class _SuccessView extends StatelessWidget {
           child: const Icon(LucideIcons.mailCheck, size: 36, color: AppColors.accent),
         ),
         const SizedBox(height: 24),
-        const Text(
-          'E-mail enviado!',
-          style: TextStyle(
+        Text(
+          l.forgotPasswordSuccessTitle,
+          style: const TextStyle(
             fontSize: 24,
             fontWeight: FontWeight.w700,
             color: AppColors.textPrimary,
@@ -187,7 +192,7 @@ class _SuccessView extends StatelessWidget {
         ),
         const SizedBox(height: 8),
         Text(
-          'Verifique sua caixa de entrada em\n$email\ne clique no link para redefinir sua senha.',
+          l.forgotPasswordSuccessBody(email),
           textAlign: TextAlign.center,
           style: const TextStyle(
             color: AppColors.textSecondary,
@@ -197,7 +202,7 @@ class _SuccessView extends StatelessWidget {
         ),
         const SizedBox(height: 40),
         OxButton(
-          label: 'Voltar ao login',
+          label: l.forgotPasswordBackToLogin,
           onPressed: () => context.go('/login'),
         ),
       ],

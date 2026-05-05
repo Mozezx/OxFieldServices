@@ -5,12 +5,12 @@ import './globals.css'
 
 export const metadata: Metadata = {
   title: 'OX Admin Panel',
-  description: 'Painel administrativo OX Field Services',
+  description: 'OX Field Services admin dashboard',
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="pt">
+    <html lang="en" suppressHydrationWarning>
       <body>
         <QueryProvider>
           {children}

@@ -11,7 +11,7 @@ import '../../features/auth/forgot_password_screen.dart';
 import '../../features/auth/reset_password_screen.dart';
 import '../../features/projects/projects_list_screen.dart';
 import '../../features/projects/project_detail_screen.dart';
-import '../../features/projects/create_project_screen.dart';
+import '../../features/projects/redeem_invite_screen.dart';
 import '../../features/phases/phase_detail_screen.dart';
 import '../../features/phases/validate_phase_screen.dart';
 import '../../features/payments/payment_screen.dart';
@@ -26,8 +26,6 @@ final routerProvider = Provider<GoRouter>((ref) {
   return GoRouter(
     initialLocation: '/splash',
     redirect: (context, state) async {
-      // Read auth state directly from Supabase — avoids Riverpod ref usage
-      // inside async callbacks which causes "provider changed before rebuild" assertion.
       final isAuth = Supabase.instance.client.auth.currentSession != null;
       final location = state.matchedLocation;
 
@@ -72,48 +70,72 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/reset-password',
         builder: (context, state) => const ResetPasswordScreen(),
       ),
-      ShellRoute(
-        builder: (context, state, child) => MainShell(child: child),
-        routes: [
-          GoRoute(
-            path: '/home',
-            builder: (context, state) => const ProjectsListScreen(),
+      StatefulShellRoute.indexedStack(
+        builder: (context, state, navigationShell) {
+          return MainShell(navigationShell: navigationShell);
+        },
+        branches: [
+          StatefulShellBranch(
+            routes: [
+              ShellRoute(
+                builder: (context, state, child) => child,
+                routes: [
+                  GoRoute(
+                    path: '/home',
+                    builder: (context, state) => const ProjectsListScreen(),
+                  ),
+                  GoRoute(
+                    path: '/redeem',
+                    builder: (context, state) {
+                      final token = state.uri.queryParameters['token'];
+                      return RedeemInviteScreen(initialToken: token);
+                    },
+                  ),
+                  GoRoute(
+                    path: '/projects/:id',
+                    builder: (context, state) =>
+                        ProjectDetailScreen(projectId: state.pathParameters['id']!),
+                  ),
+                  GoRoute(
+                    path: '/phases/:id',
+                    builder: (context, state) =>
+                        PhaseDetailScreen(phaseId: state.pathParameters['id']!),
+                  ),
+                  GoRoute(
+                    path: '/phases/:id/validate',
+                    builder: (context, state) =>
+                        ValidatePhaseScreen(phaseId: state.pathParameters['id']!),
+                  ),
+                  GoRoute(
+                    path: '/payments/:id',
+                    builder: (context, state) => PaymentScreen(
+                      contractId: state.pathParameters['id']!,
+                      projectId: state.uri.queryParameters['projectId'],
+                    ),
+                  ),
+                  GoRoute(
+                    path: '/payment-methods',
+                    builder: (context, state) => const PaymentMethodsScreen(),
+                  ),
+                ],
+              ),
+            ],
           ),
-          GoRoute(
-            path: '/projects/new',
-            builder: (context, state) => const CreateProjectScreen(),
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: '/notifications',
+                builder: (context, state) => const NotificationsScreen(),
+              ),
+            ],
           ),
-          GoRoute(
-            path: '/projects/:id',
-            builder: (context, state) =>
-                ProjectDetailScreen(projectId: state.pathParameters['id']!),
-          ),
-          GoRoute(
-            path: '/phases/:id',
-            builder: (context, state) =>
-                PhaseDetailScreen(phaseId: state.pathParameters['id']!),
-          ),
-          GoRoute(
-            path: '/phases/:id/validate',
-            builder: (context, state) =>
-                ValidatePhaseScreen(phaseId: state.pathParameters['id']!),
-          ),
-          GoRoute(
-            path: '/payments/:id',
-            builder: (context, state) =>
-                PaymentScreen(contractId: state.pathParameters['id']!),
-          ),
-          GoRoute(
-            path: '/payment-methods',
-            builder: (context, state) => const PaymentMethodsScreen(),
-          ),
-          GoRoute(
-            path: '/notifications',
-            builder: (context, state) => const NotificationsScreen(),
-          ),
-          GoRoute(
-            path: '/profile',
-            builder: (context, state) => const ProfileScreen(),
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: '/profile',
+                builder: (context, state) => const ProfileScreen(),
+              ),
+            ],
           ),
         ],
       ),

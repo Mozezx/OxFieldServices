@@ -1,6 +1,17 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import api from '../api'
 
+export interface CreateProjectPayload {
+  title: string
+  budget: number
+  location: string
+  deadline?: string
+  clientId?: string
+  clientEmail?: string
+  submit?: boolean
+  phases?: { name: string; order: number; amount: number }[]
+}
+
 export interface Project {
   id: string
   title: string
@@ -43,7 +54,8 @@ export function useProjects(status?: string) {
   return useQuery({
     queryKey: ['projects', status],
     queryFn: async () => {
-      const params = status ? { status } : {}
+      const params: Record<string, string | number> = { take: 100 }
+      if (status) params.status = status
       const { data } = await api.get('/projects', { params })
       return (Array.isArray(data) ? data : data?.data ?? data?.items ?? []) as Project[]
     },
@@ -58,6 +70,19 @@ export function useProject(id: string) {
       return data as Project
     },
     enabled: !!id,
+  })
+}
+
+export function useCreateProject() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (payload: CreateProjectPayload) => {
+      const { data } = await api.post<Project>('/projects', payload)
+      return data
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['projects'] })
+    },
   })
 }
 

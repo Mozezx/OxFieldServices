@@ -1,6 +1,8 @@
 'use client'
+
 import { useState } from 'react'
 import axios from 'axios'
+import { useTranslations } from 'next-intl'
 import { Card } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { Modal } from '@/components/ui/Modal'
@@ -12,9 +14,7 @@ import toast from 'react-hot-toast'
 interface CandidatesCardProps {
   projectId: string
   candidates: Candidate[]
-  /** Nome do worker atualmente atribuído. Quando definido, a ação vira "trocar". */
   currentWorkerName?: string | null
-  /** Quando true, todos os botões de atribuir ficam desabilitados. */
   disabled?: boolean
 }
 
@@ -24,6 +24,8 @@ export function CandidatesCard({
   currentWorkerName,
   disabled,
 }: CandidatesCardProps) {
+  const t = useTranslations('candidates')
+  const tCommon = useTranslations('common')
   const [selected, setSelected] = useState<Candidate | null>(null)
   const { mutate, isPending } = useAssignWorker()
   const isSwap = !!currentWorkerName
@@ -32,11 +34,11 @@ export function CandidatesCard({
     if (!selected) return
     mutate({ projectId, workerId: selected.id }, {
       onSuccess: () => {
-        toast.success(isSwap ? 'Worker trocado!' : 'Worker atribuído!')
+        toast.success(isSwap ? t('toastSwapped') : t('toastAssigned'))
         setSelected(null)
       },
       onError: (error) => {
-        let message = isSwap ? 'Falha ao trocar worker' : 'Falha ao atribuir worker'
+        let message = isSwap ? t('errorSwap') : t('errorAssign')
         if (axios.isAxiosError(error)) {
           const data = error.response?.data as { message?: string | string[] } | undefined
           const apiMessage = Array.isArray(data?.message) ? data?.message.join(', ') : data?.message
@@ -64,10 +66,9 @@ export function CandidatesCard({
                   </div>
                 </div>
 
-                {/* Match bar */}
                 <div className="mb-3">
                   <div className="flex items-center justify-between mb-1">
-                    <span className="text-xs text-text-secondary">Compatibilidade</span>
+                    <span className="text-xs text-text-secondary">{t('compatibility')}</span>
                     <span className="text-xs font-bold text-accent">{c.matchScore}%</span>
                   </div>
                   <div className="w-full bg-surface2 rounded-full h-2">
@@ -94,7 +95,7 @@ export function CandidatesCard({
                 disabled={disabled}
                 onClick={() => setSelected(c)}
               >
-                {isSwap ? 'Trocar' : 'Atribuir'}
+                {isSwap ? t('swap') : t('assign')}
               </Button>
             </div>
           </Card>
@@ -104,26 +105,24 @@ export function CandidatesCard({
       <Modal
         isOpen={!!selected}
         onClose={() => setSelected(null)}
-        title={isSwap ? 'Confirmar troca de worker' : 'Confirmar atribuição'}
+        title={isSwap ? t('confirmSwapTitle') : t('confirmAssignTitle')}
       >
         {isSwap ? (
           <p className="text-text-secondary mb-6">
-            Substituir{' '}
-            <span className="text-white font-medium">{currentWorkerName}</span> por{' '}
-            <span className="text-white font-medium">{selected?.user.name}</span>? O
-            contrato anterior será descartado.
+            {t('confirmSwapBody', {
+              current: currentWorkerName ?? '',
+              selected: selected?.user.name ?? '',
+            })}
           </p>
         ) : (
           <p className="text-text-secondary mb-6">
-            Atribuir{' '}
-            <span className="text-white font-medium">{selected?.user.name}</span> a
-            este projeto?
+            {t('confirmAssignBody', { selected: selected?.user.name ?? '' })}
           </p>
         )}
         <div className="flex gap-3 justify-end">
-          <Button variant="ghost" onClick={() => setSelected(null)}>Cancelar</Button>
+          <Button variant="ghost" onClick={() => setSelected(null)}>{tCommon('cancel')}</Button>
           <Button variant="primary" isLoading={isPending} onClick={handleAssign}>
-            {isSwap ? 'Trocar worker' : 'Confirmar'}
+            {isSwap ? t('confirmSwapAction') : tCommon('confirm')}
           </Button>
         </div>
       </Modal>

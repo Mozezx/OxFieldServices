@@ -1,4 +1,13 @@
-import { Controller, Post, Get, Param, Req, UseGuards, Delete } from '@nestjs/common';
+import {
+  Controller,
+  Post,
+  Get,
+  Param,
+  Req,
+  UseGuards,
+  Delete,
+  Header,
+} from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { PaymentsService } from './payments.service';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
@@ -55,12 +64,41 @@ export class PaymentsController {
     return this.paymentsService.createWorkerStripeAccount(req.user.worker?.id);
   }
 
+  @Get('worker-account/onboarding/done')
+  @Public()
+  @Header('Content-Type', 'text/html; charset=utf-8')
+  @ApiOperation({
+    summary:
+      'Landing após Stripe Connect (público). Configure STRIPE_CONNECT_RETURN_URL ou use o default da API.',
+  })
+  stripeConnectOnboardingDone() {
+    return this.paymentsService.getStripeConnectLandingHtml('done');
+  }
+
+  @Get('worker-account/onboarding/refresh')
+  @Public()
+  @Header('Content-Type', 'text/html; charset=utf-8')
+  @ApiOperation({
+    summary:
+      'Landing quando o link Stripe expirou (público). STRIPE_CONNECT_REFRESH_URL ou default da API.',
+  })
+  stripeConnectOnboardingRefresh() {
+    return this.paymentsService.getStripeConnectLandingHtml('refresh');
+  }
+
   @Get('worker-account/onboarding')
   @ApiOperation({ summary: 'Obter link de onboarding Stripe para o worker' })
   getOnboarding(@Req() req: any) {
     const base = process.env.APP_URL ?? 'http://localhost:3000';
-    const returnUrl = `${base}/payments/worker-account/onboarding/done`;
-    return this.paymentsService.getOnboardingLink(req.user.worker?.id, returnUrl);
+    const defaultReturn = `${base}/payments/worker-account/onboarding/done`;
+    const defaultRefresh = `${base}/payments/worker-account/onboarding/refresh`;
+    const returnUrl = process.env.STRIPE_CONNECT_RETURN_URL ?? defaultReturn;
+    const refreshUrl = process.env.STRIPE_CONNECT_REFRESH_URL ?? defaultRefresh;
+    return this.paymentsService.getOnboardingLink(
+      req.user.worker?.id,
+      returnUrl,
+      refreshUrl,
+    );
   }
 
   @Get('worker-account/status')

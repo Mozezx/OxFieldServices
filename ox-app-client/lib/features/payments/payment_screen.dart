@@ -7,12 +7,20 @@ import '../../core/theme/app_colors.dart';
 import '../../core/widgets/ox_app_bar.dart';
 import '../../core/widgets/ox_badge.dart';
 import '../../core/widgets/ox_button.dart';
+import '../../l10n/app_localizations.dart';
 import 'payment_provider.dart';
+import '../projects/project_provider.dart';
 
 class PaymentScreen extends ConsumerStatefulWidget {
-  const PaymentScreen({super.key, required this.contractId});
+  const PaymentScreen({
+    super.key,
+    required this.contractId,
+    this.projectId,
+  });
 
   final String contractId;
+  /// Quando o utilizador veio do detalhe do projeto, invalida o cache após pagamento.
+  final String? projectId;
 
   @override
   ConsumerState<PaymentScreen> createState() => _PaymentScreenState();
@@ -23,6 +31,7 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
   String? _error;
 
   Future<void> _payNow() async {
+    final l = AppLocalizations.of(context)!;
     setState(() {
       _processing = true;
       _error = null;
@@ -35,10 +44,16 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
 
       if (intent.alreadyPaid) {
         ref.invalidate(escrowProvider(widget.contractId));
+        ref.invalidate(projectsProvider);
+        final pid = widget.projectId;
+        if (pid != null) {
+          ref.invalidate(projectDetailProvider(pid));
+        }
         if (mounted) {
+          final loc = AppLocalizations.of(context)!;
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Pagamento já foi efetuado para este contrato.'),
+            SnackBar(
+              content: Text(loc.paymentAlreadyPaidSnack),
               backgroundColor: AppColors.accent,
             ),
           );
@@ -47,7 +62,7 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
       }
 
       if (intent.clientSecret == null || intent.clientSecret!.isEmpty) {
-        throw Exception('Erro: clientSecret não retornado pelo backend');
+        throw Exception(l.paymentErrorClientSecret);
       }
 
       await Stripe.instance.initPaymentSheet(
@@ -55,28 +70,47 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
           paymentIntentClientSecret: intent.clientSecret!,
           customerId: intent.customerId,
           customerEphemeralKeySecret: intent.customerEphemeralKeySecret,
-          merchantDisplayName: 'OX Field Services',
+          merchantDisplayName: l.paymentMerchantDisplayName,
           style: ThemeMode.dark,
-          primaryButtonLabel: 'Pagar',
+          primaryButtonLabel: l.paymentStripePrimaryButton,
         ),
       );
 
       await Stripe.instance.presentPaymentSheet();
 
-      // Sucesso — aguarda o webhook ativar o escrow no backend
+      // Se o webhook Stripe não chegou ao servidor, o POST re-sincroniza o PI (self-heal no backend).
+      await ref
+          .read(paymentNotifierProvider.notifier)
+          .createOrFetchIntent(widget.contractId);
+
+      ref.invalidate(escrowProvider(widget.contractId));
+      ref.invalidate(projectsProvider);
+
+      // Sucesso — aguarda confirmação do escrow na API
       await _pollEscrow();
 
+      final pid = widget.projectId;
+      if (pid != null) {
+        ref.invalidate(projectDetailProvider(pid));
+      }
+
       if (mounted) {
+        final loc = AppLocalizations.of(context)!;
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Pagamento realizado! Aguardando confirmação...'),
+          SnackBar(
+            content: Text(loc.paymentDoneWaitingSnack),
             backgroundColor: AppColors.accent,
           ),
         );
       }
     } on StripeException catch (e) {
-      setState(() => _error = e.error.localizedMessage ?? 'Pagamento cancelado');
+      if (!mounted) return;
+      final loc = AppLocalizations.of(context)!;
+      setState(
+        () => _error = e.error.localizedMessage ?? loc.paymentCancelledStripe,
+      );
     } catch (e) {
+      if (!mounted) return;
       setState(() => _error = e.toString());
     } finally {
       if (mounted) setState(() => _processing = false);
@@ -96,27 +130,31 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
     final escrowAsync = ref.watch(escrowProvider(widget.contractId));
 
     return Scaffold(
-      appBar: const OxAppBar(title: 'Pagamento'),
+      appBar: OxAppBar(title: l.paymentTitle),
       body: escrowAsync.when(
         loading: () => const Center(
           child: CircularProgressIndicator(color: AppColors.accent),
         ),
         error: (e, _) => Center(
-          child: Text('Erro: $e',
-              style: const TextStyle(color: AppColors.error)),
+          child: Text(
+            l.paymentErrorLine(e.toString()),
+            style: const TextStyle(color: AppColors.error),
+          ),
         ),
         data: (escrow) {
           if (escrow == null) {
             return _NotPaidView(
+              l: l,
               onPay: _processing ? null : _payNow,
               processing: _processing,
               error: _error,
             );
           }
-          return _PaidView(escrow: escrow);
+          return _PaidView(l: l, escrow: escrow);
         },
       ),
     );
@@ -125,11 +163,13 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
 
 class _NotPaidView extends StatelessWidget {
   const _NotPaidView({
+    required this.l,
     required this.onPay,
     required this.processing,
     this.error,
   });
 
+  final AppLocalizations l;
   final VoidCallback? onPay;
   final bool processing;
   final String? error;
@@ -148,17 +188,17 @@ class _NotPaidView extends StatelessWidget {
               borderRadius: BorderRadius.circular(16),
               border: Border.all(color: AppColors.divider),
             ),
-            child: const Column(
+            child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(
                   children: [
-                    Icon(LucideIcons.creditCard,
+                    const Icon(LucideIcons.creditCard,
                         size: 24, color: AppColors.accent),
-                    SizedBox(width: 10),
+                    const SizedBox(width: 10),
                     Text(
-                      'Confirmar pagamento',
-                      style: TextStyle(
+                      l.paymentConfirmTitle,
+                      style: const TextStyle(
                         color: AppColors.textPrimary,
                         fontSize: 18,
                         fontWeight: FontWeight.w700,
@@ -167,10 +207,10 @@ class _NotPaidView extends StatelessWidget {
                     ),
                   ],
                 ),
-                SizedBox(height: 12),
+                const SizedBox(height: 12),
                 Text(
-                  'O valor ficará bloqueado em escrow seguro. Será liberado para o trabalhador apenas após você validar cada fase do projeto.',
-                  style: TextStyle(
+                  l.paymentConfirmBody,
+                  style: const TextStyle(
                     color: AppColors.textSecondary,
                     fontSize: 14,
                     fontFamily: 'Inter',
@@ -187,15 +227,15 @@ class _NotPaidView extends StatelessWidget {
               borderRadius: BorderRadius.circular(12),
               border: Border.all(color: AppColors.accent.withValues(alpha: 0.2)),
             ),
-            child: const Row(
+            child: Row(
               children: [
-                Icon(LucideIcons.shieldCheck,
+                const Icon(LucideIcons.shieldCheck,
                     size: 18, color: AppColors.accent),
-                SizedBox(width: 10),
+                const SizedBox(width: 10),
                 Expanded(
                   child: Text(
-                    'Modo teste: use o cartão 4242 4242 4242 4242, qualquer data futura, qualquer CVC.',
-                    style: TextStyle(
+                    l.paymentTestModeHint,
+                    style: const TextStyle(
                       color: AppColors.textSecondary,
                       fontSize: 12,
                       fontFamily: 'Inter',
@@ -235,7 +275,7 @@ class _NotPaidView extends StatelessWidget {
           ],
           const SizedBox(height: 28),
           OxButton(
-            label: processing ? 'Processando...' : 'Pagar agora',
+            label: processing ? l.paymentProcessing : l.paymentPayNow,
             icon: LucideIcons.lock,
             isLoading: processing,
             onPressed: onPay,
@@ -247,16 +287,18 @@ class _NotPaidView extends StatelessWidget {
 }
 
 class _PaidView extends StatelessWidget {
-  const _PaidView({required this.escrow});
+  const _PaidView({required this.l, required this.escrow});
+
+  final AppLocalizations l;
   final EscrowModel escrow;
 
   @override
   Widget build(BuildContext context) {
     final statusLabel = escrow.status == 'released'
-        ? 'Liberado'
+        ? l.paymentEscrowStatusReleased
         : escrow.status == 'held'
-            ? 'Bloqueado'
-            : 'Reembolsado';
+            ? l.paymentEscrowStatusHeld
+            : l.paymentEscrowStatusRefunded;
     final badgeStatus = escrow.status == 'released'
         ? OxBadgeStatus.active
         : escrow.status == 'held'
@@ -268,9 +310,9 @@ class _PaidView extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'Status do Escrow',
-            style: TextStyle(
+          Text(
+            l.paymentEscrowStatusHeading,
+            style: const TextStyle(
               color: AppColors.textPrimary,
               fontSize: 22,
               fontWeight: FontWeight.w700,
@@ -294,9 +336,9 @@ class _PaidView extends StatelessWidget {
                     const Icon(LucideIcons.lock,
                         size: 20, color: AppColors.accent),
                     const SizedBox(width: 10),
-                    const Text(
-                      'Escrow',
-                      style: TextStyle(
+                    Text(
+                      l.paymentEscrowBrand,
+                      style: const TextStyle(
                         color: AppColors.textSecondary,
                         fontFamily: 'Inter',
                       ),
@@ -316,9 +358,9 @@ class _PaidView extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 4),
-                const Text(
-                  'Valor total do contrato',
-                  style: TextStyle(
+                Text(
+                  l.paymentTotalContractValue,
+                  style: const TextStyle(
                     color: AppColors.textSecondary,
                     fontSize: 13,
                     fontFamily: 'Inter',
@@ -338,9 +380,9 @@ class _PaidView extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
-                  'DISTRIBUIÇÃO',
-                  style: TextStyle(
+                Text(
+                  l.paymentDistributionHeading,
+                  style: const TextStyle(
                     color: AppColors.textSecondary,
                     fontSize: 12,
                     fontWeight: FontWeight.w600,
@@ -350,12 +392,12 @@ class _PaidView extends StatelessWidget {
                 ),
                 const SizedBox(height: 16),
                 _SplitRow(
-                  label: 'Trabalhador (70%)',
+                  label: l.paymentSplitWorker,
                   amount: escrow.amount * 0.70,
                   icon: LucideIcons.hardHat,
                 ),
                 _SplitRow(
-                  label: 'Plataforma OX (30%)',
+                  label: l.paymentSplitPlatform,
                   amount: escrow.amount * 0.30,
                   icon: LucideIcons.building2,
                 ),
@@ -370,15 +412,15 @@ class _PaidView extends StatelessWidget {
               borderRadius: BorderRadius.circular(12),
               border: Border.all(color: AppColors.accent.withValues(alpha: 0.2)),
             ),
-            child: const Row(
+            child: Row(
               children: [
-                Icon(LucideIcons.shieldCheck,
+                const Icon(LucideIcons.shieldCheck,
                     size: 18, color: AppColors.accent),
-                SizedBox(width: 12),
+                const SizedBox(width: 12),
                 Expanded(
                   child: Text(
-                    'O pagamento é liberado automaticamente após você aprovar cada fase do projeto.',
-                    style: TextStyle(
+                    l.paymentEscrowReleaseInfo,
+                    style: const TextStyle(
                       color: AppColors.textSecondary,
                       fontSize: 13,
                       fontFamily: 'Inter',

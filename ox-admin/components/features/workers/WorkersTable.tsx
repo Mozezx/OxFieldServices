@@ -1,5 +1,7 @@
 'use client'
-import { useRouter } from 'next/navigation'
+
+import { useTranslations } from 'next-intl'
+import { useRouter } from '@/i18n/navigation'
 import { Table, Thead, Tbody, Th, Td, Tr } from '@/components/ui/Table'
 import { TableSkeleton } from '@/components/ui/Skeleton'
 import { Badge } from '@/components/ui/Badge'
@@ -13,17 +15,18 @@ interface WorkersTableProps {
 }
 
 export function WorkersTable({ workers, isLoading }: WorkersTableProps) {
+  const t = useTranslations('workers.table')
   const router = useRouter()
 
   return (
     <Table>
       <Thead>
         <tr>
-          <Th>Nome</Th>
-          <Th>Skills</Th>
-          <Th>Rating</Th>
-          <Th>Status</Th>
-          <Th>Ações</Th>
+          <Th>{t('name')}</Th>
+          <Th>{t('skills')}</Th>
+          <Th>{t('rating')}</Th>
+          <Th>{t('status')}</Th>
+          <Th>{t('actions')}</Th>
         </tr>
       </Thead>
       <Tbody>
@@ -32,7 +35,7 @@ export function WorkersTable({ workers, isLoading }: WorkersTableProps) {
         ) : workers?.length === 0 ? (
           <tr>
             <td colSpan={5} className="text-center py-12 text-text-secondary">
-              Nenhum worker encontrado.
+              {t('empty')}
             </td>
           </tr>
         ) : (
@@ -62,7 +65,7 @@ export function WorkersTable({ workers, isLoading }: WorkersTableProps) {
                   size="sm"
                   onClick={(e) => { e.stopPropagation(); router.push(`/workers/${worker.id}`) }}
                 >
-                  Ver perfil
+                  {t('viewProfile')}
                 </Button>
               </Td>
             </Tr>

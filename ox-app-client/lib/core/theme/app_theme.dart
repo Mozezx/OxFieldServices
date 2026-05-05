@@ -8,7 +8,7 @@ class AppTheme {
         useMaterial3: true,
         brightness: Brightness.dark,
         fontFamily: 'Inter',
-        scaffoldBackgroundColor: AppColors.primary,
+        scaffoldBackgroundColor: AppColors.appBackground,
         colorScheme: const ColorScheme.dark(
           primary: AppColors.accent,
           secondary: AppColors.secondary,

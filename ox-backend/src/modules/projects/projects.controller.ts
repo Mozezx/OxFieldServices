@@ -20,6 +20,8 @@ import { CreateProjectDto } from './dto/create-project.dto';
 import { UpdateProjectDto } from './dto/update-project.dto';
 import { UpdateStatusDto } from './dto/update-status.dto';
 import { RateProjectDto } from './dto/rate-project.dto';
+import { InvitesService } from '../invites/invites.service';
+import { CreateInviteDto } from '../invites/dto/create-invite.dto';
 import { ProjectStatus } from '@prisma/client';
 
 @ApiTags('Projects')
@@ -27,13 +29,21 @@ import { ProjectStatus } from '@prisma/client';
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Controller('projects')
 export class ProjectsController {
-  constructor(private readonly projectsService: ProjectsService) {}
+  constructor(
+    private readonly projectsService: ProjectsService,
+    private readonly invitesService: InvitesService,
+  ) {}
+
+  /** id interno Prisma ou, em último caso, authId (Supabase sub). */
+  private userKey(req: { user?: { id?: string; authId?: string } }): string {
+    return String(req.user?.id ?? req.user?.authId ?? '');
+  }
 
   @Post()
   @Roles('client', 'admin')
   @ApiOperation({ summary: 'Criar um novo projeto' })
   create(@Req() req: any, @Body() dto: CreateProjectDto) {
-    return this.projectsService.create(req.user.id, dto);
+    return this.projectsService.create(this.userKey(req), dto);
   }
 
   @Get()
@@ -55,7 +65,7 @@ export class ProjectsController {
     type: Boolean,
     description: 'Lista apenas projetos sem contrato (útil para matching).',
   })
-  findAll(
+  async findAll(
     @Req() req: any,
     @Query('status') status?: ProjectStatus,
     @Query('skip') skip?: string,
@@ -74,17 +84,19 @@ export class ProjectsController {
     //    Pode pedir explicitamente noContract=true para ver disponíveis.
     //  - admin: vê tudo
     if (req.user.role === 'client') {
-      params.clientId = req.user.id;
+      params.clientId = await this.projectsService.resolveUserKeyToId(this.userKey(req));
     } else if (req.user.role === 'worker') {
-      const workerId: string | undefined = req.user.worker?.id;
       const wantsAvailable = noContract === 'true';
+      let workerId: string | undefined = req.user.worker?.id;
+      if (!workerId) {
+        workerId = await this.projectsService.findWorkerIdForAppUser(req.user.id);
+      }
       if (wantsAvailable) {
         params.noContract = true;
       } else if (workerId) {
         params.workerId = workerId;
       } else {
-        // Worker sem perfil sincronizado: retorna lista vazia em vez de
-        // expor todos os projetos do sistema.
+        // Worker sem registo Worker em DB: lista vazia (não expor todos os projetos).
         return { data: [], total: 0, skip: 0, take: 0 };
       }
     }
@@ -101,8 +113,8 @@ export class ProjectsController {
   @Get(':id')
   @Roles('client', 'worker', 'admin')
   @ApiOperation({ summary: 'Obter detalhes de um projeto' })
-  findOne(@Param('id', ParseUUIDPipe) id: string) {
-    return this.projectsService.findOne(id);
+  findOne(@Param('id', ParseUUIDPipe) id: string, @Req() req: any) {
+    return this.projectsService.findOne(id, this.userKey(req));
   }
 
   @Patch(':id')
@@ -113,7 +125,7 @@ export class ProjectsController {
     @Req() req: any,
     @Body() dto: UpdateProjectDto,
   ) {
-    return this.projectsService.update(id, req.user.id, dto);
+    return this.projectsService.update(id, this.userKey(req), dto);
   }
 
   @Patch(':id/status')
@@ -124,7 +136,7 @@ export class ProjectsController {
     @Req() req: any,
     @Body() dto: UpdateStatusDto,
   ) {
-    return this.projectsService.updateStatus(id, req.user.id, dto);
+    return this.projectsService.updateStatus(id, this.userKey(req), dto);
   }
 
   @Post(':id/rating')
@@ -135,13 +147,32 @@ export class ProjectsController {
     @Req() req: any,
     @Body() dto: RateProjectDto,
   ) {
-    return this.projectsService.rateWorker(id, req.user.id, dto);
+    return this.projectsService.rateWorker(id, this.userKey(req), dto);
   }
 
   @Delete(':id')
   @Roles('client', 'admin')
   @ApiOperation({ summary: 'Remover projeto (apenas draft)' })
   remove(@Param('id', ParseUUIDPipe) id: string, @Req() req: any) {
-    return this.projectsService.remove(id, req.user.id);
+    return this.projectsService.remove(id, this.userKey(req));
+  }
+
+  @Post(':id/invites')
+  @Roles('admin')
+  @ApiOperation({ summary: 'Criar convite para o projeto (admin)' })
+  createInvite(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Req() req: any,
+    @Body() dto: CreateInviteDto,
+  ) {
+    const adminId = String(req.user?.id ?? req.user?.authId ?? '');
+    return this.invitesService.createForProject(id, adminId, dto);
+  }
+
+  @Get(':id/invites')
+  @Roles('admin')
+  @ApiOperation({ summary: 'Listar convites do projeto (admin)' })
+  listInvites(@Param('id', ParseUUIDPipe) id: string) {
+    return this.invitesService.findByProject(id);
   }
 }

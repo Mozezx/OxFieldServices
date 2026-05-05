@@ -1,5 +1,7 @@
 'use client'
-import { useRouter } from 'next/navigation'
+
+import { useTranslations } from 'next-intl'
+import { useRouter } from '@/i18n/navigation'
 import { Table, Thead, Tbody, Th, Td, Tr } from '@/components/ui/Table'
 import { TableSkeleton } from '@/components/ui/Skeleton'
 import { Badge } from '@/components/ui/Badge'
@@ -14,19 +16,21 @@ interface ProjectsTableProps {
 }
 
 export function ProjectsTable({ projects, isLoading }: ProjectsTableProps) {
+  const t = useTranslations('projects.table')
+  const tCommon = useTranslations('common')
   const router = useRouter()
 
   return (
     <Table>
       <Thead>
         <tr>
-          <Th>#</Th>
-          <Th>Título</Th>
-          <Th>Cliente</Th>
-          <Th>Status</Th>
-          <Th>Valor</Th>
-          <Th>Data</Th>
-          <Th>Ações</Th>
+          <Th>{t('num')}</Th>
+          <Th>{t('title')}</Th>
+          <Th>{t('client')}</Th>
+          <Th>{t('status')}</Th>
+          <Th>{t('value')}</Th>
+          <Th>{t('date')}</Th>
+          <Th>{t('actions')}</Th>
         </tr>
       </Thead>
       <Tbody>
@@ -35,7 +39,7 @@ export function ProjectsTable({ projects, isLoading }: ProjectsTableProps) {
         ) : projects?.length === 0 ? (
           <tr>
             <td colSpan={7} className="text-center py-12 text-text-secondary">
-              Nenhum projeto encontrado.
+              {t('empty')}
             </td>
           </tr>
         ) : (
@@ -53,7 +57,7 @@ export function ProjectsTable({ projects, isLoading }: ProjectsTableProps) {
                   size="sm"
                   onClick={(e) => { e.stopPropagation(); router.push(`/projects/${project.id}`) }}
                 >
-                  Ver
+                  {tCommon('view')}
                 </Button>
               </Td>
             </Tr>

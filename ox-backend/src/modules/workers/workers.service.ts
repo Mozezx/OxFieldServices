@@ -14,7 +14,9 @@ export class WorkersService {
     const worker = await this.prisma.worker.findUnique({
       where: { userId },
       include: {
-        user: { select: { id: true, name: true, email: true, phone: true } },
+        user: {
+          select: { id: true, name: true, email: true, phone: true, avatarUrl: true },
+        },
         ratings: { orderBy: { createdAt: 'desc' }, take: 10 },
       },
     });
@@ -32,7 +34,9 @@ export class WorkersService {
       where: { userId },
       data: dto,
       include: {
-        user: { select: { id: true, name: true, email: true, phone: true } },
+        user: {
+          select: { id: true, name: true, email: true, phone: true, avatarUrl: true },
+        },
       },
     });
 
@@ -50,7 +54,9 @@ export class WorkersService {
         take: params.take ?? 20,
         orderBy: { rating: 'desc' },
         include: {
-          user: { select: { id: true, name: true, email: true } },
+          user: {
+            select: { id: true, name: true, email: true, avatarUrl: true },
+          },
         },
       }),
       this.prisma.worker.count({ where }),
@@ -59,11 +65,30 @@ export class WorkersService {
     return { data: workers.map((w) => this.formatWorker(w)), total };
   }
 
+  async updateById(workerId: string, dto: UpdateWorkerDto) {
+    const worker = await this.prisma.worker.findUnique({ where: { id: workerId } });
+    if (!worker) throw new NotFoundException('Worker não encontrado');
+
+    const updated = await this.prisma.worker.update({
+      where: { id: workerId },
+      data: dto,
+      include: {
+        user: {
+          select: { id: true, name: true, email: true, phone: true, avatarUrl: true },
+        },
+      },
+    });
+
+    return this.formatWorker(updated);
+  }
+
   async findOne(workerId: string) {
     const worker = await this.prisma.worker.findUnique({
       where: { id: workerId },
       include: {
-        user: { select: { id: true, name: true, email: true } },
+        user: {
+          select: { id: true, name: true, email: true, avatarUrl: true },
+        },
         ratings: { orderBy: { createdAt: 'desc' }, take: 5 },
       },
     });

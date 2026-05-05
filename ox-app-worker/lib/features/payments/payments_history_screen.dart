@@ -4,23 +4,107 @@ import 'package:intl/intl.dart';
 import 'package:lucide_flutter/lucide_flutter.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/widgets/ox_app_bar.dart';
+import '../../core/widgets/ox_button.dart';
 import '../../core/widgets/ox_empty_state.dart';
 import '../../core/widgets/ox_loading.dart';
+import '../../l10n/app_localizations.dart';
+import '../profile/stripe_connect_launch.dart';
+import '../profile/stripe_connect_provider.dart';
 import 'payments_provider.dart';
 
-class PaymentsHistoryScreen extends ConsumerWidget {
+class PaymentsHistoryScreen extends ConsumerStatefulWidget {
   const PaymentsHistoryScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<PaymentsHistoryScreen> createState() =>
+      _PaymentsHistoryScreenState();
+}
+
+class _PaymentsHistoryScreenState extends ConsumerState<PaymentsHistoryScreen>
+    with WidgetsBindingObserver {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      ref.invalidate(connectStatusProvider);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final t = AppLocalizations.of(context)!;
     final paymentsAsync = ref.watch(paymentsProvider);
     final totalAsync = ref.watch(totalReceivedProvider);
+    final connectAsync = ref.watch(connectStatusProvider);
+    final actionState = ref.watch(connectActionProvider);
+    final connectActionLoading = actionState is AsyncLoading;
 
     return Scaffold(
-      appBar: const OxAppBar(title: 'Meus Pagamentos'),
+      appBar: OxAppBar(title: t.paymentsTitle),
       body: Column(
         children: [
-          // Total received header
+          connectAsync.when(
+            loading: () => const SizedBox.shrink(),
+            error: (_, __) => const SizedBox.shrink(),
+            data: (status) {
+              if (status.isReady) return const SizedBox.shrink();
+              return Padding(
+                padding: const EdgeInsets.fromLTRB(24, 16, 24, 0),
+                child: Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: AppColors.surface,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(
+                      color: AppColors.warning.withValues(alpha: 0.45),
+                    ),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Text(
+                        t.paymentsConnectSetupMessage,
+                        style: const TextStyle(
+                          color: AppColors.textPrimary,
+                          fontSize: 14,
+                          height: 1.35,
+                          fontFamily: 'Inter',
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      OxButton(
+                        label: status.notStarted
+                            ? t.bankConfigureButton
+                            : t.bankResolveButton,
+                        icon: LucideIcons.externalLink,
+                        isLoading: connectActionLoading,
+                        onPressed: () async {
+                          if (!context.mounted) return;
+                          await launchWorkerStripeOnboarding(
+                            context,
+                            ref,
+                            status,
+                          );
+                        },
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            },
+          ),
           Container(
             width: double.infinity,
             margin: const EdgeInsets.all(24),
@@ -33,9 +117,9 @@ class PaymentsHistoryScreen extends ConsumerWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
-                  'TOTAL RECEBIDO',
-                  style: TextStyle(
+                Text(
+                  t.paymentsTotalReceived,
+                  style: const TextStyle(
                     color: AppColors.textSecondary,
                     fontSize: 12,
                     fontWeight: FontWeight.w600,
@@ -58,9 +142,9 @@ class PaymentsHistoryScreen extends ConsumerWidget {
                   ),
                 ),
                 const SizedBox(height: 4),
-                const Text(
-                  'Pagamentos liberados',
-                  style: TextStyle(
+                Text(
+                  t.paymentsReleasedLabel,
+                  style: const TextStyle(
                     color: AppColors.textSecondary,
                     fontSize: 13,
                     fontFamily: 'Inter',
@@ -69,8 +153,6 @@ class PaymentsHistoryScreen extends ConsumerWidget {
               ],
             ),
           ),
-
-          // Transaction list
           Expanded(
             child: paymentsAsync.when(
               loading: () => ListView.separated(
@@ -79,20 +161,19 @@ class PaymentsHistoryScreen extends ConsumerWidget {
                 separatorBuilder: (_, __) => const SizedBox(height: 12),
                 itemBuilder: (_, __) => const OxJobCardSkeleton(),
               ),
-              error: (_, __) => const Center(
+              error: (_, __) => Center(
                 child: Text(
-                  'Erro ao carregar pagamentos',
-                  style: TextStyle(
+                  t.paymentsLoadError,
+                  style: const TextStyle(
                       color: AppColors.error, fontFamily: 'Inter'),
                 ),
               ),
               data: (payments) {
                 if (payments.isEmpty) {
-                  return const OxEmptyState(
+                  return OxEmptyState(
                     icon: LucideIcons.wallet,
-                    title: 'Nenhum pagamento ainda',
-                    subtitle:
-                        'Os pagamentos aparecerão aqui conforme suas fases forem validadas.',
+                    title: t.paymentsEmpty,
+                    subtitle: t.paymentsEmptySubtitle,
                   );
                 }
                 return ListView.separated(
@@ -117,6 +198,7 @@ class _PaymentCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final t = AppLocalizations.of(context)!;
     final fmt = DateFormat('dd/MM/yyyy');
 
     return Container(
@@ -151,7 +233,7 @@ class _PaymentCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  payment.projectTitle ?? 'Pagamento',
+                  payment.projectTitle ?? t.paymentDefaultTitle,
                   style: const TextStyle(
                     color: AppColors.textPrimary,
                     fontWeight: FontWeight.w600,
@@ -162,8 +244,10 @@ class _PaymentCard extends StatelessWidget {
                 const SizedBox(height: 2),
                 Text(
                   payment.isReleased
-                      ? 'Liberado${payment.paidAt != null ? ' em ${fmt.format(payment.paidAt!)}' : ''}'
-                      : 'Aguardando liberacao',
+                      ? (payment.paidAt != null
+                          ? t.paymentStatusReleasedOn(fmt.format(payment.paidAt!))
+                          : t.paymentStatusReleased)
+                      : t.paymentStatusPending,
                   style: TextStyle(
                     color: payment.isReleased
                         ? AppColors.textSecondary

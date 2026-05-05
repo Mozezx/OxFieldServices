@@ -1,14 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_flutter/lucide_flutter.dart';
-import 'package:url_launcher/url_launcher.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/widgets/ox_button.dart';
 import '../../core/widgets/ox_loading.dart';
+import '../../l10n/app_localizations.dart';
+import 'stripe_connect_launch.dart';
 import 'stripe_connect_provider.dart';
 
-/// Seção do perfil do worker para gerenciar a conta de recebimento (Stripe Connect).
-/// Detecta automaticamente o estado da conta e mostra o CTA apropriado.
 class BankAccountSection extends ConsumerStatefulWidget {
   const BankAccountSection({super.key});
 
@@ -33,29 +32,14 @@ class _BankAccountSectionState extends ConsumerState<BankAccountSection>
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    // Ao retornar do navegador (onde concluiu o onboarding), refresh o status
     if (state == AppLifecycleState.resumed) {
       ref.invalidate(connectStatusProvider);
     }
   }
 
-  Future<void> _openUrl(BuildContext context, String? url) async {
-    if (url == null || url.isEmpty) return;
-    final uri = Uri.parse(url);
-    if (await canLaunchUrl(uri)) {
-      await launchUrl(uri, mode: LaunchMode.externalApplication);
-    } else if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Não foi possível abrir o link de onboarding'),
-          backgroundColor: AppColors.error,
-        ),
-      );
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
+    final t = AppLocalizations.of(context)!;
     final statusAsync = ref.watch(connectStatusProvider);
     final actionState = ref.watch(connectActionProvider);
     final isLoading = actionState is AsyncLoading;
@@ -77,15 +61,15 @@ class _BankAccountSectionState extends ConsumerState<BankAccountSection>
         error: (e, _) => Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const _Header(),
+            _Header(t: t),
             const SizedBox(height: 12),
             Text(
-              'Erro ao verificar status: $e',
+              t.bankStatusError(e.toString()),
               style: const TextStyle(color: AppColors.error, fontSize: 12),
             ),
             const SizedBox(height: 12),
             OxButton(
-              label: 'Tentar novamente',
+              label: t.bankRetryButton,
               variant: OxButtonVariant.secondary,
               onPressed: () => ref.invalidate(connectStatusProvider),
             ),
@@ -94,49 +78,62 @@ class _BankAccountSectionState extends ConsumerState<BankAccountSection>
         data: (status) => Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const _Header(),
+            _Header(t: t),
             const SizedBox(height: 16),
-            _StatusBadge(status: status.status),
+            _StatusBadge(status: status.status, t: t),
             const SizedBox(height: 16),
-            ..._buildContent(context, status, isLoading),
+            ..._buildContent(context, t, status, isLoading),
           ],
         ),
       ),
     );
   }
 
+  List<Widget> _connectBrowserHint(AppLocalizations t) {
+    return [
+      Text(
+        t.bankConnectBrowserHint,
+        style: const TextStyle(
+          color: AppColors.textSecondary,
+          fontSize: 12,
+          fontFamily: 'Inter',
+        ),
+      ),
+      const SizedBox(height: 12),
+    ];
+  }
+
   List<Widget> _buildContent(
-      BuildContext context, ConnectStatus status, bool isLoading) {
+      BuildContext context, AppLocalizations t, ConnectStatus status, bool isLoading) {
     switch (status.status) {
       case 'not_started':
         return [
-          const Text(
-            'Configure sua conta Stripe para receber pagamentos pelos jobs concluídos.',
-            style: TextStyle(
+          Text(
+            t.bankNotStartedDesc,
+            style: const TextStyle(
               color: AppColors.textSecondary,
               fontSize: 13,
               fontFamily: 'Inter',
             ),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 12),
+          ..._connectBrowserHint(t),
           OxButton(
-            label: 'Configurar agora',
+            label: t.bankConfigureButton,
             icon: LucideIcons.creditCard,
             isLoading: isLoading,
             onPressed: () async {
-              final url = await ref
-                  .read(connectActionProvider.notifier)
-                  .openOnboarding();
-              if (context.mounted) await _openUrl(context, url);
+              if (!context.mounted) return;
+              await launchWorkerStripeOnboarding(context, ref, status);
             },
           ),
         ];
 
       case 'pending':
         return [
-          const Text(
-            'Sua conta foi criada, mas algumas informações ainda são necessárias para começar a receber:',
-            style: TextStyle(
+          Text(
+            t.bankPendingDesc,
+            style: const TextStyle(
               color: AppColors.textSecondary,
               fontSize: 13,
               fontFamily: 'Inter',
@@ -144,8 +141,10 @@ class _BankAccountSectionState extends ConsumerState<BankAccountSection>
           ),
           if (status.currentlyDue.isNotEmpty) ...[
             const SizedBox(height: 12),
-            ...status.currentlyDue.take(5).map(
-                  (req) => Padding(
+            ..._dedupedHumanized(t, status.currentlyDue)
+                .take(12)
+                .map(
+                  (line) => Padding(
                     padding: const EdgeInsets.only(bottom: 6),
                     child: Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -155,7 +154,7 @@ class _BankAccountSectionState extends ConsumerState<BankAccountSection>
                         const SizedBox(width: 6),
                         Expanded(
                           child: Text(
-                            _humanizeRequirement(req),
+                            line,
                             style: const TextStyle(
                               color: AppColors.textPrimary,
                               fontSize: 12,
@@ -168,16 +167,15 @@ class _BankAccountSectionState extends ConsumerState<BankAccountSection>
                   ),
                 ),
           ],
-          const SizedBox(height: 16),
+          const SizedBox(height: 12),
+          ..._connectBrowserHint(t),
           OxButton(
-            label: 'Continuar cadastro',
+            label: t.bankContinueButton,
             icon: LucideIcons.externalLink,
             isLoading: isLoading,
             onPressed: () async {
-              final url = await ref
-                  .read(connectActionProvider.notifier)
-                  .reopenOnboarding();
-              if (context.mounted) await _openUrl(context, url);
+              if (!context.mounted) return;
+              await launchWorkerStripeOnboarding(context, ref, status);
             },
           ),
         ];
@@ -202,7 +200,7 @@ class _BankAccountSectionState extends ConsumerState<BankAccountSection>
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          status.bankAccount!.bankName ?? 'Conta bancária',
+                          status.bankAccount!.bankName ?? t.bankAccountDefault,
                           style: const TextStyle(
                             color: AppColors.textPrimary,
                             fontWeight: FontWeight.w600,
@@ -227,25 +225,24 @@ class _BankAccountSectionState extends ConsumerState<BankAccountSection>
             ),
             const SizedBox(height: 12),
           ],
-          const Text(
-            'Pagamentos são depositados em até 2 dias úteis após cada fase ser validada pelo cliente.',
-            style: TextStyle(
+          Text(
+            t.bankActivePaymentInfo,
+            style: const TextStyle(
               color: AppColors.textSecondary,
               fontSize: 12,
               fontFamily: 'Inter',
             ),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 12),
+          ..._connectBrowserHint(t),
           OxButton(
-            label: 'Atualizar dados bancários',
+            label: t.bankUpdateButton,
             variant: OxButtonVariant.secondary,
             icon: LucideIcons.settings,
             isLoading: isLoading,
             onPressed: () async {
-              final url = await ref
-                  .read(connectActionProvider.notifier)
-                  .reopenOnboarding();
-              if (context.mounted) await _openUrl(context, url);
+              if (!context.mounted) return;
+              await launchWorkerStripeOnboarding(context, ref, status);
             },
           ),
         ];
@@ -265,7 +262,7 @@ class _BankAccountSectionState extends ConsumerState<BankAccountSection>
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  status.disabledReason ?? 'Há pendências bloqueando os recebimentos.',
+                  _friendlyDisabledReason(t, status.disabledReason),
                   style: const TextStyle(
                     color: AppColors.error,
                     fontSize: 13,
@@ -275,9 +272,9 @@ class _BankAccountSectionState extends ConsumerState<BankAccountSection>
                 ),
                 if (status.pastDue.isNotEmpty) ...[
                   const SizedBox(height: 8),
-                  ...status.pastDue.take(5).map(
-                        (req) => Text(
-                          '• ${_humanizeRequirement(req)}',
+                  ..._dedupedHumanized(t, status.pastDue).take(12).map(
+                        (line) => Text(
+                          '• $line',
                           style: const TextStyle(
                             color: AppColors.textPrimary,
                             fontSize: 12,
@@ -289,64 +286,158 @@ class _BankAccountSectionState extends ConsumerState<BankAccountSection>
               ],
             ),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 12),
+          ..._connectBrowserHint(t),
           OxButton(
-            label: 'Resolver pendências',
+            label: t.bankResolveButton,
             icon: LucideIcons.externalLink,
             isLoading: isLoading,
             onPressed: () async {
-              final url = await ref
-                  .read(connectActionProvider.notifier)
-                  .reopenOnboarding();
-              if (context.mounted) await _openUrl(context, url);
+              if (!context.mounted) return;
+              await launchWorkerStripeOnboarding(context, ref, status);
             },
           ),
         ];
     }
   }
 
-  String _humanizeRequirement(String key) {
-    switch (key) {
+  String _friendlyDisabledReason(AppLocalizations t, String? raw) {
+    if (raw == null || raw.isEmpty) return t.bankRestrictedDefault;
+    switch (raw) {
+      case 'requirements.past_due':
+        return t.bankStripeDisabledPastDue;
+      case 'requirements.pending_verification':
+        return t.bankStripeDisabledPendingVerification;
+      case 'under_review':
+        return t.bankStripeDisabledUnderReview;
+      case 'listed':
+      case 'rejected.listed':
+        return t.bankStripeDisabledUnderReview;
+      case 'rejected.fraud':
+      case 'rejected.terms_of_service':
+      case 'rejected.other':
+        return t.bankStripeDisabledRejected;
+      default:
+        if (raw.startsWith('rejected.')) {
+          return t.bankStripeDisabledRejected;
+        }
+        return t.bankRestrictedDefault;
+    }
+  }
+
+  List<String> _dedupedHumanized(AppLocalizations t, List<String> keys) {
+    final seen = <String>{};
+    final out = <String>[];
+    for (final k in keys) {
+      final line = _humanizeRequirement(t, k);
+      if (seen.add(line)) out.add(line);
+    }
+    return out;
+  }
+
+  String _humanizeRequirement(AppLocalizations t, String key) {
+    final personMatch = RegExp(r'^person_[^.]+\.(.+)$').firstMatch(key.trim());
+    final k = personMatch?.group(1) ?? key.trim();
+
+    switch (k) {
       case 'individual.first_name':
       case 'individual.last_name':
-        return 'Nome completo';
+      case 'first_name':
+      case 'last_name':
+        return t.bankReqFullName;
       case 'individual.dob.day':
       case 'individual.dob.month':
       case 'individual.dob.year':
-        return 'Data de nascimento';
+      case 'dob.day':
+      case 'dob.month':
+      case 'dob.year':
+        return t.bankReqBirthDate;
       case 'individual.id_number':
       case 'individual.ssn_last_4':
-        return 'Documento de identidade';
+      case 'id_number':
+      case 'ssn_last_4':
+        return t.bankReqIdDocument;
       case 'individual.address.line1':
       case 'individual.address.city':
       case 'individual.address.postal_code':
-        return 'Endereço residencial';
+      case 'individual.address.state':
+      case 'address.line1':
+      case 'address.city':
+      case 'address.postal_code':
+      case 'address.state':
+        return t.bankReqAddress;
       case 'external_account':
-        return 'Dados bancários (IBAN ou conta)';
+        return t.bankReqBankData;
       case 'tos_acceptance.date':
       case 'tos_acceptance.ip':
-        return 'Aceitar termos da Stripe';
+        return t.bankReqStripeTerms;
       case 'business_profile.url':
       case 'business_profile.mcc':
-        return 'Perfil profissional';
-      default:
-        return key.replaceAll('_', ' ').replaceAll('.', ' › ');
+      case 'business_profile.name':
+        return t.bankReqProfile;
+      case 'business_profile.product_description':
+        return t.bankReqProductDescription;
+      case 'business_type':
+        return t.bankReqBusinessType;
+      case 'business_profile.support_email':
+      case 'business_profile.support_phone':
+      case 'email':
+      case 'individual.email':
+      case 'individual.phone':
+        return t.bankReqContactEmailPhone;
+      case 'business_profile.support_url':
+        return t.bankReqWebsiteOrSocial;
+      case 'verification.document':
+        return t.bankReqIdDocument;
+      case 'verification.additional_document':
+        return t.bankReqAdditionalVerification;
     }
+
+    if (k.startsWith('company.')) {
+      return t.bankReqCompanyInfo;
+    }
+    if (k.startsWith('representative.')) {
+      if (k.contains('address')) return t.bankReqRepresentativeAddress;
+      return t.bankReqRepresentativeDetails;
+    }
+    if (k.startsWith('business_profile.')) {
+      if (k.contains('product_description')) {
+        return t.bankReqProductDescription;
+      }
+      if (k.contains('url')) return t.bankReqWebsiteOrSocial;
+      return t.bankReqProfile;
+    }
+    if (k.startsWith('individual.')) {
+      if (k.contains('address')) return t.bankReqAddress;
+      if (k.contains('dob')) return t.bankReqBirthDate;
+      if (k.contains('email') || k.contains('phone')) {
+        return t.bankReqContactEmailPhone;
+      }
+      if (k.contains('id_number') || k.contains('ssn')) {
+        return t.bankReqIdDocument;
+      }
+      if (k.contains('first_name') || k.contains('last_name')) {
+        return t.bankReqFullName;
+      }
+    }
+
+    return t.bankReqFallbackStripeForm;
   }
 }
 
 class _Header extends StatelessWidget {
-  const _Header();
+  const _Header({required this.t});
+  final AppLocalizations t;
 
   @override
   Widget build(BuildContext context) {
-    return const Row(
+    return Row(
       children: [
-        Icon(LucideIcons.landmark, size: 18, color: AppColors.accent),
-        SizedBox(width: 10),
+        const Icon(LucideIcons.landmark, size: 18, color: AppColors.accent),
+        const SizedBox(width: 10),
         Text(
-          'CONTA DE RECEBIMENTO',
-          style: TextStyle(
+          t.bankSection,
+          style: const TextStyle(
             color: AppColors.textSecondary,
             fontSize: 12,
             fontWeight: FontWeight.w600,
@@ -360,16 +451,17 @@ class _Header extends StatelessWidget {
 }
 
 class _StatusBadge extends StatelessWidget {
-  const _StatusBadge({required this.status});
+  const _StatusBadge({required this.status, required this.t});
   final String status;
+  final AppLocalizations t;
 
   @override
   Widget build(BuildContext context) {
     final (label, color) = switch (status) {
-      'active' => ('Ativo', AppColors.accent),
-      'pending' => ('Em verificação', AppColors.warning),
-      'restricted' => ('Suspenso', AppColors.error),
-      _ => ('Não configurado', AppColors.textDisabled),
+      'active' => (t.bankStatusActive, AppColors.accent),
+      'pending' => (t.bankStatusPending, AppColors.warning),
+      'restricted' => (t.bankStatusRestricted, AppColors.error),
+      _ => (t.bankStatusNotConfigured, AppColors.textDisabled),
     };
 
     return Container(

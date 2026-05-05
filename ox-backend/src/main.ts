@@ -7,7 +7,14 @@ async function bootstrap() {
   const app = await NestFactory.create(AppModule, { rawBody: true });
 
   app.enableCors({
-    origin: /^http:\/\/localhost(:\d+)?$/,
+    // Apps móveis costumam não enviar Origin; Flutter web / LAN usam 192.168.x ou 10.x.
+    origin: (origin, callback) => {
+      if (!origin) return callback(null, true);
+      if (/^http:\/\/localhost(:\d+)?$/.test(origin)) return callback(null, true);
+      if (/^http:\/\/192\.168\.\d+\.\d+(:\d+)?$/.test(origin)) return callback(null, true);
+      if (/^http:\/\/10\.\d+\.\d+\.\d+(:\d+)?$/.test(origin)) return callback(null, true);
+      return callback(null, false);
+    },
     credentials: true,
   });
 

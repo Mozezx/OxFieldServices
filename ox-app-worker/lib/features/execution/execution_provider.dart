@@ -5,6 +5,23 @@ import '../../core/api/api_client.dart';
 import '../../core/api/api_endpoints.dart';
 import '../jobs/jobs_provider.dart';
 
+/// Stable ids for the phase checklist (labels from app localizations in the UI).
+const kPhaseChecklistKeys = <String>[
+  'materials',
+  'ppe',
+  'work_started',
+  'safety',
+  'photo_doc',
+];
+
+class PhaseNotFoundException implements Exception {
+  const PhaseNotFoundException();
+}
+
+class PhaseSubmitPreconditionException implements Exception {
+  const PhaseSubmitPreconditionException();
+}
+
 // --- Models ---
 
 class EvidenceModel {
@@ -57,8 +74,8 @@ class PhaseExecutionModel {
 
 // --- Providers ---
 
-final phaseExecutionProvider = FutureProvider.autoDispose
-    .family<PhaseExecutionModel?, String?>((ref, phaseId) async {
+final phaseExecutionProvider = FutureProvider.family<PhaseExecutionModel?,
+    String?>((ref, phaseId) async {
   if (phaseId == null) return null;
   final api = ref.watch(apiClientProvider);
   final res = await api.dio.get(ApiEndpoints.phaseById(phaseId));
@@ -84,7 +101,7 @@ const _activePhaseStatuses = {
 };
 
 final activePhasesProvider =
-    FutureProvider.autoDispose<List<JobPhasesGroup>>((ref) async {
+    FutureProvider<List<JobPhasesGroup>>((ref) async {
   final jobs = await ref.watch(activeJobsProvider.future);
   final groups = <JobPhasesGroup>[];
   for (final j in jobs) {
@@ -151,19 +168,34 @@ final evidenceUploadProvider =
 
 // --- Start phase (pending → in_progress) ---
 
-class StartPhaseNotifier extends AsyncNotifier<void> {
-  @override
-  Future<void> build() async {}
+class StartPhaseNotifier extends AutoDisposeFamilyAsyncNotifier<void, String> {
+  late final String _phaseId;
 
-  Future<void> startPhase(String phaseId) async {
+  @override
+  void build(String arg) {
+    _phaseId = arg;
+  }
+
+  Future<void> startPhase() async {
     state = const AsyncLoading();
     state = await AsyncValue.guard(() async {
       final api = ref.read(apiClientProvider);
-      await api.dio.patch(
-        ApiEndpoints.phaseStatus(phaseId),
-        data: {'status': 'in_progress'},
-      );
-      ref.invalidate(phaseExecutionProvider(phaseId));
+      try {
+        await api.dio.patch(
+          ApiEndpoints.phaseStatus(_phaseId),
+          data: {'status': 'in_progress'},
+        );
+      } on DioException catch (e) {
+        // Alguns ambientes retornam 400 quando a fase ja foi iniciada
+        // em paralelo. Nesse caso, evita erro visual e segue o fluxo.
+        if (e.response?.statusCode != 400) rethrow;
+
+        ref.invalidate(phaseExecutionProvider(_phaseId));
+        final phase = await ref.read(phaseExecutionProvider(_phaseId).future);
+        if (phase == null || phase.status == 'pending') rethrow;
+      }
+
+      ref.invalidate(phaseExecutionProvider(_phaseId));
       ref.invalidate(activePhasesProvider);
       ref.invalidate(activeJobsProvider);
     });
@@ -171,42 +203,45 @@ class StartPhaseNotifier extends AsyncNotifier<void> {
 }
 
 final startPhaseProvider =
-    AsyncNotifierProvider<StartPhaseNotifier, void>(StartPhaseNotifier.new);
+    AsyncNotifierProvider.autoDispose
+        .family<StartPhaseNotifier, void, String>(StartPhaseNotifier.new);
 
 // --- Submit phase for review (evidence_uploaded → under_review) ---
 
-class PhaseSubmitNotifier extends AsyncNotifier<void> {
-  @override
-  Future<void> build() async {}
+class PhaseSubmitNotifier extends AutoDisposeFamilyAsyncNotifier<void, String> {
+  late final String _phaseId;
 
-  Future<void> submitForReview(String phaseId) async {
+  @override
+  void build(String arg) {
+    _phaseId = arg;
+  }
+
+  Future<void> submitForReview() async {
     state = const AsyncLoading();
     state = await AsyncValue.guard(() async {
       final api = ref.read(apiClientProvider);
 
       // Garante que o cache da fase está atualizado antes de calcular a transição
-      ref.invalidate(phaseExecutionProvider(phaseId));
+      ref.invalidate(phaseExecutionProvider(_phaseId));
       final phase =
-          await ref.read(phaseExecutionProvider(phaseId).future);
+          await ref.read(phaseExecutionProvider(_phaseId).future);
 
       if (phase == null) {
-        throw Exception('Fase não encontrada');
+        throw const PhaseNotFoundException();
       }
 
       // Backend só aceita evidence_uploaded → under_review.
       // Se ainda estiver em in_progress (sem upload), avisa.
       if (phase.status != 'evidence_uploaded') {
-        throw Exception(
-          'Faça upload de pelo menos uma evidência antes de enviar para revisão.',
-        );
+        throw const PhaseSubmitPreconditionException();
       }
 
       await api.dio.patch(
-        ApiEndpoints.phaseStatus(phaseId),
+        ApiEndpoints.phaseStatus(_phaseId),
         data: {'status': 'under_review'},
       );
 
-      ref.invalidate(phaseExecutionProvider(phaseId));
+      ref.invalidate(phaseExecutionProvider(_phaseId));
       ref.invalidate(activePhasesProvider);
       ref.invalidate(activeJobsProvider);
     });
@@ -214,7 +249,8 @@ class PhaseSubmitNotifier extends AsyncNotifier<void> {
 }
 
 final phaseSubmitProvider =
-    AsyncNotifierProvider<PhaseSubmitNotifier, void>(PhaseSubmitNotifier.new);
+    AsyncNotifierProvider.autoDispose
+        .family<PhaseSubmitNotifier, void, String>(PhaseSubmitNotifier.new);
 
 // --- Checklist state (local only) ---
 
@@ -224,13 +260,7 @@ final checklistProvider =
 
 class ChecklistNotifier extends StateNotifier<Map<String, bool>> {
   ChecklistNotifier()
-      : super({
-          'Materiais separados': false,
-          "EPI's utilizados": false,
-          'Trabalho iniciado': false,
-          'Verificacao de seguranca': false,
-          'Documentacao fotografica': false,
-        });
+      : super({for (final k in kPhaseChecklistKeys) k: false});
 
   void toggle(String key) {
     state = {...state, key: !(state[key] ?? false)};

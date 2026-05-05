@@ -14,6 +14,7 @@ class ApiEndpoints {
   static String projectById(String id) => '/projects/$id';
   static String projectStatus(String id) => '/projects/$id/status';
   static String projectPhases(String id) => '/projects/$id/phases';
+  static String projectRating(String id) => '/projects/$id/rating';
 
   static String phaseById(String id) => '/phases/$id';
   static String phaseValidate(String id) => '/phases/$id/validate';
@@ -21,7 +22,6 @@ class ApiEndpoints {
   static String phaseEvidenceList(String id) => '/phases/$id/evidence';
 
   static String contractByProject(String projectId) => '/contracts/project/$projectId';
-  static String contractSign(String contractId) => '/contracts/$contractId/sign';
   static const contracts = '/contracts';
 
   static const payments = '/payments';
@@ -36,8 +36,13 @@ class ApiEndpoints {
   static String paymentMethodDefault(String id) =>
       '/payments/payment-methods/$id/default';
 
+  static const invitesPreview = '/invites/preview';
+  static const invitesRedeem = '/invites/redeem';
+
   static const usersFcmToken = '/users/fcm-token';
   static const usersDeviceTokens = '/users/device-tokens';
+  static const usersPreferredLocale = '/users/preferred-locale';
+  static const usersAvatarUrl = '/users/avatar-url';
 
   static const notifications = '/notifications';
   static const notificationsUnreadCount = '/notifications/unread-count';

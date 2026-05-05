@@ -7,6 +7,7 @@ import '../../core/theme/app_colors.dart';
 import '../../core/widgets/ox_app_bar.dart';
 import '../../core/widgets/ox_badge.dart';
 import '../../core/widgets/ox_button.dart';
+import '../../l10n/app_localizations.dart';
 import 'jobs_provider.dart';
 
 class JobDetailScreen extends ConsumerWidget {
@@ -16,14 +17,18 @@ class JobDetailScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final t = AppLocalizations.of(context)!;
     final jobAsync = ref.watch(jobDetailProvider(projectId));
     final actionState = ref.watch(jobActionProvider);
 
     ref.listen(jobActionProvider, (_, next) {
       if (next is AsyncError) {
+        final msg = next.error is NoContractForProjectException
+            ? t.jobsNoContractError
+            : t.commonErrorWithMessage(next.error.toString());
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(next.error.toString()),
+            content: Text(msg),
             backgroundColor: AppColors.error,
           ),
         );
@@ -31,8 +36,8 @@ class JobDetailScreen extends ConsumerWidget {
         // ignore initial
       } else if (next is AsyncData) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Job aceito com sucesso!'),
+          SnackBar(
+            content: Text(t.jobAcceptedSuccess),
             backgroundColor: AppColors.accent,
           ),
         );
@@ -41,13 +46,15 @@ class JobDetailScreen extends ConsumerWidget {
     });
 
     return Scaffold(
-      appBar: const OxAppBar(title: 'Detalhes do Job'),
+      appBar: OxAppBar(title: t.jobDetailTitle),
       body: jobAsync.when(
         loading: () =>
             const Center(child: CircularProgressIndicator(color: AppColors.accent)),
         error: (e, _) => Center(
-          child: Text('Erro: $e',
-              style: const TextStyle(color: AppColors.error)),
+          child: Text(
+            t.commonErrorWithMessage(e.toString()),
+            style: const TextStyle(color: AppColors.error),
+          ),
         ),
         data: (job) {
           final fmt = DateFormat('dd/MM/yyyy');
@@ -61,7 +68,6 @@ class JobDetailScreen extends ConsumerWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Header
                 Text(
                   job.title,
                   style: const TextStyle(
@@ -88,8 +94,6 @@ class JobDetailScreen extends ConsumerWidget {
                   ],
                 ),
                 const SizedBox(height: 24),
-
-                // Info card
                 Container(
                   padding: const EdgeInsets.all(20),
                   decoration: BoxDecoration(
@@ -100,9 +104,9 @@ class JobDetailScreen extends ConsumerWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
-                        'INFORMACOES',
-                        style: TextStyle(
+                      Text(
+                        t.jobInfoSection,
+                        style: const TextStyle(
                           color: AppColors.textSecondary,
                           fontSize: 12,
                           fontWeight: FontWeight.w600,
@@ -114,29 +118,27 @@ class JobDetailScreen extends ConsumerWidget {
                       if (job.deadline != null)
                         _InfoRow(
                           icon: LucideIcons.calendar,
-                          label: 'Prazo',
+                          label: t.jobInfoDeadline,
                           value: fmt.format(job.deadline!),
                         ),
                       _InfoRow(
                         icon: LucideIcons.mapPin,
-                        label: 'Local',
+                        label: t.jobInfoLocation,
                         value: job.location,
                       ),
                       if (job.description != null)
                         _InfoRow(
                           icon: LucideIcons.fileText,
-                          label: 'Descricao',
+                          label: t.jobInfoDescription,
                           value: job.description!,
                         ),
                     ],
                   ),
                 ),
                 const SizedBox(height: 24),
-
-                // Phases & payments
-                const Text(
-                  'FASES E PAGAMENTOS',
-                  style: TextStyle(
+                Text(
+                  t.jobPhasesPaymentsSection,
+                  style: const TextStyle(
                     color: AppColors.textSecondary,
                     fontSize: 12,
                     fontWeight: FontWeight.w600,
@@ -152,9 +154,9 @@ class JobDetailScreen extends ConsumerWidget {
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      const Text(
-                        'Total',
-                        style: TextStyle(
+                      Text(
+                        t.jobTotal,
+                        style: const TextStyle(
                           color: AppColors.textPrimary,
                           fontWeight: FontWeight.w700,
                           fontFamily: 'Inter',
@@ -173,12 +175,10 @@ class JobDetailScreen extends ConsumerWidget {
                     ],
                   ),
                 ),
-
                 const SizedBox(height: 32),
-
                 if (isActive) ...[
                   OxButton(
-                    label: 'Continuar execucao',
+                    label: t.jobContinueExecution,
                     icon: LucideIcons.zap,
                     onPressed: job.activePhase != null
                         ? () =>
@@ -187,7 +187,7 @@ class JobDetailScreen extends ConsumerWidget {
                   ),
                 ] else if (canAccept) ...[
                   OxButton(
-                    label: 'Aceitar Job',
+                    label: t.jobAcceptButton,
                     icon: LucideIcons.checkCircle2,
                     isLoading: actionState is AsyncLoading,
                     onPressed: () async {
@@ -204,7 +204,7 @@ class JobDetailScreen extends ConsumerWidget {
                   ),
                   const SizedBox(height: 12),
                   OxButton(
-                    label: 'Recusar',
+                    label: t.jobDeclineButton,
                     variant: OxButtonVariant.danger,
                     onPressed: () {
                       ref.read(jobActionProvider.notifier).declineJob(projectId);
@@ -220,15 +220,15 @@ class JobDetailScreen extends ConsumerWidget {
                       border: Border.all(
                           color: AppColors.warning.withValues(alpha: 0.3)),
                     ),
-                    child: const Row(
+                    child: Row(
                       children: [
-                        Icon(LucideIcons.clock,
+                        const Icon(LucideIcons.clock,
                             color: AppColors.warning, size: 20),
-                        SizedBox(width: 12),
+                        const SizedBox(width: 12),
                         Expanded(
                           child: Text(
-                            'Contrato assinado. Aguardando o cliente efetuar o pagamento para iniciar a execução.',
-                            style: TextStyle(
+                            t.jobAwaitingPaymentMsg,
+                            style: const TextStyle(
                               color: AppColors.textSecondary,
                               fontSize: 13,
                               fontFamily: 'Inter',
@@ -247,15 +247,15 @@ class JobDetailScreen extends ConsumerWidget {
                       border: Border.all(
                           color: AppColors.accent.withValues(alpha: 0.3)),
                     ),
-                    child: const Row(
+                    child: Row(
                       children: [
-                        Icon(LucideIcons.zap,
+                        const Icon(LucideIcons.zap,
                             color: AppColors.accent, size: 20),
-                        SizedBox(width: 12),
+                        const SizedBox(width: 12),
                         Expanded(
                           child: Text(
-                            'Pagamento confirmado! O projeto será ativado em breve e as fases aparecerão na aba "Em Execução".',
-                            style: TextStyle(
+                            t.jobAwaitingStartMsg,
+                            style: const TextStyle(
                               color: AppColors.textSecondary,
                               fontSize: 13,
                               fontFamily: 'Inter',
@@ -321,12 +321,13 @@ class _PhaseRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final t = AppLocalizations.of(context)!;
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8),
       child: Row(
         children: [
           OxBadge(
-            label: 'Fase ${phase.order}',
+            label: t.phaseOrderLabel(phase.order),
             status: phaseStatusToBadge(phase.status),
           ),
           const SizedBox(width: 12),
@@ -359,19 +360,20 @@ class _AcceptConfirmDialog extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final t = AppLocalizations.of(context)!;
     return AlertDialog(
       backgroundColor: AppColors.surface,
-      title: const Text(
-        'Aceitar Job',
-        style: TextStyle(
+      title: Text(
+        t.jobAcceptDialogTitle,
+        style: const TextStyle(
           color: AppColors.textPrimary,
           fontFamily: 'Inter',
           fontWeight: FontWeight.w700,
         ),
       ),
-      content: const Text(
-        'Ao aceitar, voce se compromete a executar todas as fases conforme acordado. Deseja continuar?',
-        style: TextStyle(
+      content: Text(
+        t.jobAcceptDialogContent,
+        style: const TextStyle(
           color: AppColors.textSecondary,
           fontFamily: 'Inter',
           fontSize: 14,
@@ -380,8 +382,8 @@ class _AcceptConfirmDialog extends StatelessWidget {
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context, false),
-          child: const Text('Cancelar',
-              style: TextStyle(color: AppColors.textSecondary)),
+          child: Text(t.commonCancel,
+              style: const TextStyle(color: AppColors.textSecondary)),
         ),
         ElevatedButton(
           onPressed: () => Navigator.pop(context, true),
@@ -389,8 +391,8 @@ class _AcceptConfirmDialog extends StatelessWidget {
             backgroundColor: AppColors.accent,
             foregroundColor: AppColors.primary,
           ),
-          child: const Text('Aceitar',
-              style: TextStyle(fontWeight: FontWeight.w700)),
+          child: Text(t.dialogAccept,
+              style: const TextStyle(fontWeight: FontWeight.w700)),
         ),
       ],
     );

@@ -12,6 +12,7 @@ class WorkerProfileModel {
     this.skills = const [],
     this.name,
     this.email,
+    this.avatarUrl,
   });
 
   final String id;
@@ -22,6 +23,7 @@ class WorkerProfileModel {
   final List<String> skills;
   final String? name;
   final String? email;
+  final String? avatarUrl;
 
   factory WorkerProfileModel.fromJson(Map<String, dynamic> json) =>
       WorkerProfileModel(
@@ -35,9 +37,14 @@ class WorkerProfileModel {
             .toList(),
         name: json['user']?['name'] as String?,
         email: json['user']?['email'] as String?,
+        avatarUrl: json['user']?['avatarUrl'] as String?,
       );
 
-  WorkerProfileModel copyWith({bool? available, List<String>? skills}) =>
+  WorkerProfileModel copyWith({
+    bool? available,
+    List<String>? skills,
+    String? avatarUrl,
+  }) =>
       WorkerProfileModel(
         id: id,
         userId: userId,
@@ -47,11 +54,11 @@ class WorkerProfileModel {
         skills: skills ?? this.skills,
         name: name,
         email: email,
+        avatarUrl: avatarUrl ?? this.avatarUrl,
       );
 }
 
-final workerProfileProvider =
-    FutureProvider.autoDispose<WorkerProfileModel?>((ref) async {
+final workerProfileProvider = FutureProvider<WorkerProfileModel?>((ref) async {
   final api = ref.watch(apiClientProvider);
   try {
     final res = await api.dio.get(ApiEndpoints.workerMe);
@@ -107,7 +114,7 @@ class PredefinedSkill {
 }
 
 final predefinedSkillsProvider =
-    FutureProvider.autoDispose<List<PredefinedSkill>>((ref) async {
+    FutureProvider<List<PredefinedSkill>>((ref) async {
   final api = ref.watch(apiClientProvider);
   try {
     final res = await api.dio.get(ApiEndpoints.skills);

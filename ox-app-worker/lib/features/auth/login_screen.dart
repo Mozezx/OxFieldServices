@@ -6,6 +6,7 @@ import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_gradients.dart';
 import '../../core/widgets/ox_button.dart';
 import '../../core/widgets/ox_input.dart';
+import '../../l10n/app_localizations.dart';
 import 'auth_controller.dart';
 import 'register_screen.dart';
 
@@ -31,6 +32,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final t = AppLocalizations.of(context)!;
     final authState = ref.watch(authControllerProvider);
 
     ref.listen(authControllerProvider, (_, next) {
@@ -65,9 +67,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   children: [
                     Image.asset('assets/logo.webp', width: 100, height: 100),
                     const SizedBox(height: 32),
-                    const Text(
-                      'OX Trabalhador',
-                      style: TextStyle(
+                    Text(
+                      t.appTitle,
+                      style: const TextStyle(
                         fontSize: 24,
                         fontWeight: FontWeight.w700,
                         color: AppColors.textPrimary,
@@ -75,34 +77,34 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       ),
                     ),
                     const SizedBox(height: 8),
-                    const Text(
-                      'Entre na sua conta de trabalhador',
-                      style: TextStyle(
+                    Text(
+                      t.loginSubtitle,
+                      style: const TextStyle(
                         color: AppColors.textSecondary,
                         fontFamily: 'Inter',
                       ),
                     ),
                     const SizedBox(height: 40),
                     OxInput(
-                      label: 'E-mail',
+                      label: t.emailLabel,
                       controller: _emailCtrl,
                       keyboardType: TextInputType.emailAddress,
                       prefixIcon: LucideIcons.mail,
                       validator: (v) {
-                        if (v == null || v.isEmpty) return 'Campo obrigatório';
-                        if (!v.contains('@')) return 'E-mail inválido';
+                        if (v == null || v.isEmpty) return t.errorFieldRequired;
+                        if (!v.contains('@')) return t.errorInvalidEmail;
                         return null;
                       },
                     ),
                     const SizedBox(height: 16),
                     OxInput(
-                      label: 'Senha',
+                      label: t.passwordLabel,
                       controller: _passwordCtrl,
                       obscureText: true,
                       prefixIcon: LucideIcons.lock,
                       validator: (v) {
-                        if (v == null || v.isEmpty) return 'Campo obrigatório';
-                        if (v.length < 6) return 'Mínimo 6 caracteres';
+                        if (v == null || v.isEmpty) return t.errorFieldRequired;
+                        if (v.length < 6) return t.errorPasswordShort;
                         return null;
                       },
                     ),
@@ -111,9 +113,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       alignment: Alignment.centerRight,
                       child: GestureDetector(
                         onTap: () => context.push('/forgot-password'),
-                        child: const Text(
-                          'Esqueceu a senha?',
-                          style: TextStyle(
+                        child: Text(
+                          t.loginForgotPassword,
+                          style: const TextStyle(
                             color: AppColors.accent,
                             fontWeight: FontWeight.w500,
                             fontFamily: 'Inter',
@@ -124,7 +126,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     ),
                     const SizedBox(height: 24),
                     OxButton(
-                      label: 'Entrar',
+                      label: t.loginButton,
                       isLoading: authState is AsyncLoading,
                       onPressed: () {
                         if (_formKey.currentState!.validate()) {
@@ -136,21 +138,21 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       },
                     ),
                     const SizedBox(height: 20),
-                    const Row(
+                    Row(
                       children: [
-                        Expanded(child: Divider(color: AppColors.divider)),
+                        const Expanded(child: Divider(color: AppColors.divider)),
                         Padding(
-                          padding: EdgeInsets.symmetric(horizontal: 16),
+                          padding: const EdgeInsets.symmetric(horizontal: 16),
                           child: Text(
-                            'ou continue com',
-                            style: TextStyle(
+                            t.loginOrContinueWith,
+                            style: const TextStyle(
                               color: AppColors.textSecondary,
                               fontFamily: 'Inter',
                               fontSize: 12,
                             ),
                           ),
                         ),
-                        Expanded(child: Divider(color: AppColors.divider)),
+                        const Expanded(child: Divider(color: AppColors.divider)),
                       ],
                     ),
                     const SizedBox(height: 16),
@@ -183,17 +185,17 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     const SizedBox(height: 28),
                     GestureDetector(
                       onTap: () => setState(() => _showRegister = true),
-                      child: const Text.rich(
+                      child: Text.rich(
                         TextSpan(
-                          text: 'Não tem conta? ',
-                          style: TextStyle(
+                          text: t.loginNoAccount,
+                          style: const TextStyle(
                             color: AppColors.textSecondary,
                             fontFamily: 'Inter',
                           ),
                           children: [
                             TextSpan(
-                              text: 'Cadastre-se',
-                              style: TextStyle(
+                              text: t.loginRegisterLink,
+                              style: const TextStyle(
                                 color: AppColors.accent,
                                 fontWeight: FontWeight.w600,
                               ),

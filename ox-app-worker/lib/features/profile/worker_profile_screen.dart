@@ -1,25 +1,143 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:lucide_flutter/lucide_flutter.dart';
+import '../../core/l10n/language_selector_widget.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/widgets/ox_app_bar.dart';
 import '../../core/widgets/ox_button.dart';
 import '../../core/widgets/ox_loading.dart';
+import '../../core/widgets/profile_avatar.dart';
+import '../../l10n/app_localizations.dart';
 import '../auth/auth_controller.dart';
-import 'profile_provider.dart';
+import 'avatar_upload.dart';
 import 'bank_account_section.dart';
+import 'profile_provider.dart';
 
-class WorkerProfileScreen extends ConsumerWidget {
+class WorkerProfileScreen extends ConsumerStatefulWidget {
   const WorkerProfileScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<WorkerProfileScreen> createState() => _WorkerProfileScreenState();
+}
+
+class _WorkerProfileScreenState extends ConsumerState<WorkerProfileScreen> {
+  bool _avatarBusy = false;
+
+  Future<void> _pickAndUpload(ImageSource source, AppLocalizations t) async {
+    final file = await ImagePicker().pickImage(
+      source: source,
+      maxWidth: 2048,
+      imageQuality: 85,
+    );
+    if (file == null) return;
+    setState(() => _avatarBusy = true);
+    try {
+      await uploadProfileAvatar(ref, file);
+      ref.invalidate(workerProfileProvider);
+    } catch (e) {
+      debugPrint('avatar upload failed: $e');
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(mapAvatarUploadError(e, t))));
+    } finally {
+      if (mounted) setState(() => _avatarBusy = false);
+    }
+  }
+
+  Future<void> _confirmRemove(AppLocalizations t) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        backgroundColor: AppColors.surface,
+        title: Text(t.profilePhotoRemove,
+            style: const TextStyle(color: AppColors.textPrimary)),
+        content: Text(
+          t.profilePhotoRemoveMessage,
+          style: const TextStyle(color: AppColors.textSecondary),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: Text(t.commonCancel),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: Text(t.profilePhotoRemove),
+          ),
+        ],
+      ),
+    );
+    if (ok != true || !mounted) return;
+    setState(() => _avatarBusy = true);
+    try {
+      await clearProfileAvatar(ref);
+      ref.invalidate(workerProfileProvider);
+    } catch (e) {
+      debugPrint('avatar clear failed: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(mapAvatarUploadError(e, t))),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _avatarBusy = false);
+    }
+  }
+
+  void _showAvatarSheet(AppLocalizations t, WorkerProfileModel? worker) {
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: AppColors.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(LucideIcons.image, color: AppColors.accent),
+              title: Text(t.profilePhotoGallery),
+              onTap: () {
+                Navigator.pop(ctx);
+                _pickAndUpload(ImageSource.gallery, t);
+              },
+            ),
+            ListTile(
+              leading: const Icon(LucideIcons.camera, color: AppColors.accent),
+              title: Text(t.profilePhotoCamera),
+              onTap: () {
+                Navigator.pop(ctx);
+                _pickAndUpload(ImageSource.camera, t);
+              },
+            ),
+            if ((worker?.avatarUrl ?? '').isNotEmpty)
+              ListTile(
+                leading: const Icon(LucideIcons.trash, color: AppColors.error),
+                title: Text(t.profilePhotoRemove,
+                    style: const TextStyle(color: AppColors.error)),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _confirmRemove(t);
+                },
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final t = AppLocalizations.of(context)!;
     final workerAsync = ref.watch(workerProfileProvider);
 
     return Scaffold(
       appBar: OxAppBar(
-        title: 'Meu Perfil',
+        title: t.profileTitle,
         actions: [
           IconButton(
             icon: const Icon(LucideIcons.logOut, size: 20),
@@ -27,54 +145,54 @@ class WorkerProfileScreen extends ConsumerWidget {
             onPressed: () async {
               final confirm = await showDialog<bool>(
                 context: context,
-                builder: (dialogContext) => AlertDialog(
-                  backgroundColor: AppColors.surface,
-                  title: const Text(
-                    'Sair',
-                    style: TextStyle(
-                      color: AppColors.textPrimary,
-                      fontFamily: 'Inter',
-                    ),
-                  ),
-                  content: const Text(
-                    'Deseja sair da sua conta?',
-                    style: TextStyle(
-                      color: AppColors.textSecondary,
-                      fontFamily: 'Inter',
-                    ),
-                  ),
-                  actions: [
-                    TextButton(
-                      onPressed: () => Navigator.pop(dialogContext, false),
-                      child: const Text('Cancelar'),
-                    ),
-                    TextButton(
-                      onPressed: () => Navigator.pop(dialogContext, true),
-                      child: const Text(
-                        'Sair',
-                        style: TextStyle(color: AppColors.error),
+                builder: (dialogContext) {
+                  final dt = AppLocalizations.of(dialogContext)!;
+                  return AlertDialog(
+                    backgroundColor: AppColors.surface,
+                    title: Text(
+                      dt.profileLogoutTitle,
+                      style: const TextStyle(
+                        color: AppColors.textPrimary,
+                        fontFamily: 'Inter',
                       ),
                     ),
-                  ],
-                ),
+                    content: Text(
+                      dt.profileLogoutConfirm,
+                      style: const TextStyle(
+                        color: AppColors.textSecondary,
+                        fontFamily: 'Inter',
+                      ),
+                    ),
+                    actions: [
+                      TextButton(
+                        onPressed: () => Navigator.pop(dialogContext, false),
+                        child: Text(dt.commonCancel),
+                      ),
+                      TextButton(
+                        onPressed: () => Navigator.pop(dialogContext, true),
+                        child: Text(
+                          dt.profileLogoutTitle,
+                          style: const TextStyle(color: AppColors.error),
+                        ),
+                      ),
+                    ],
+                  );
+                },
               );
               if (confirm == true) {
                 try {
-                  // Limpa a sessão local (instantâneo, sem rede).
                   await ref.read(authControllerProvider.notifier).signOut();
                 } catch (e) {
                   if (context.mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
-                        content: Text('Erro ao sair: $e'),
+                        content: Text(t.profileSignoutError(e.toString())),
                         backgroundColor: AppColors.error,
                       ),
                     );
                   }
                 }
 
-                // Navega explicitamente para /login (mesmo se signOut falhou,
-                // pois o usuário já confirmou que quer sair).
                 if (context.mounted) {
                   context.go('/login');
                 }
@@ -95,14 +213,15 @@ class WorkerProfileScreen extends ConsumerWidget {
           ),
         ),
         error: (e, _) => Center(
-          child: Text('Erro: $e',
-              style: const TextStyle(color: AppColors.error)),
+          child: Text(
+            t.commonErrorWithMessage(e.toString()),
+            style: const TextStyle(color: AppColors.error),
+          ),
         ),
         data: (worker) => SingleChildScrollView(
           padding: const EdgeInsets.all(24),
           child: Column(
             children: [
-              // Avatar + info
               Container(
                 padding: const EdgeInsets.all(24),
                 decoration: BoxDecoration(
@@ -112,25 +231,40 @@ class WorkerProfileScreen extends ConsumerWidget {
                 ),
                 child: Column(
                   children: [
-                    CircleAvatar(
-                      radius: 40,
-                      backgroundColor:
-                          AppColors.accent.withValues(alpha: 0.15),
-                      child: Text(
-                        (worker?.name ?? worker?.email ?? 'W')
-                            .substring(0, 1)
-                            .toUpperCase(),
-                        style: const TextStyle(
-                          color: AppColors.accent,
-                          fontSize: 32,
-                          fontWeight: FontWeight.w700,
-                          fontFamily: 'Inter',
+                    Stack(
+                      alignment: Alignment.center,
+                      children: [
+                        Opacity(
+                          opacity: _avatarBusy ? 0.45 : 1,
+                          child: ProfileAvatar(
+                            radius: 40,
+                            imageUrl: worker?.avatarUrl,
+                            label: worker?.name ?? worker?.email ?? 'W',
+                            onTap: _avatarBusy
+                                ? null
+                                : () => _showAvatarSheet(t, worker),
+                          ),
                         ),
+                        if (_avatarBusy)
+                          const SizedBox(
+                            width: 36,
+                            height: 36,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      t.profilePhotoChangeHint,
+                      style: const TextStyle(
+                        color: AppColors.textSecondary,
+                        fontSize: 12,
+                        fontFamily: 'Inter',
                       ),
                     ),
                     const SizedBox(height: 16),
                     Text(
-                      worker?.name ?? 'Trabalhador',
+                      worker?.name ?? t.defaultWorkerName,
                       style: const TextStyle(
                         color: AppColors.textPrimary,
                         fontSize: 20,
@@ -150,7 +284,6 @@ class WorkerProfileScreen extends ConsumerWidget {
                       ),
                     ],
                     const SizedBox(height: 16),
-                    // Rating stars
                     Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
@@ -180,7 +313,6 @@ class WorkerProfileScreen extends ConsumerWidget {
               ),
               const SizedBox(height: 16),
 
-              // Status & certifications
               Container(
                 padding: const EdgeInsets.all(20),
                 decoration: BoxDecoration(
@@ -191,9 +323,9 @@ class WorkerProfileScreen extends ConsumerWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
-                      'STATUS',
-                      style: TextStyle(
+                    Text(
+                      t.profileStatusSection,
+                      style: const TextStyle(
                         color: AppColors.textSecondary,
                         fontSize: 12,
                         fontWeight: FontWeight.w600,
@@ -204,20 +336,20 @@ class WorkerProfileScreen extends ConsumerWidget {
                     const SizedBox(height: 16),
                     _StatusRow(
                       icon: LucideIcons.circle,
-                      label: 'Disponibilidade',
+                      label: t.profileAvailabilityLabel,
                       value: (worker?.available ?? false)
-                          ? 'Disponivel'
-                          : 'Indisponivel',
+                          ? t.workerStatusAvailable
+                          : t.workerStatusUnavailable,
                       valueColor: (worker?.available ?? false)
                           ? AppColors.accent
                           : AppColors.textSecondary,
                     ),
                     _StatusRow(
                       icon: LucideIcons.shield,
-                      label: 'Certificacao Shelter',
+                      label: t.profileShelterLabel,
                       value: (worker?.shelterCertified ?? false)
-                          ? 'Certificado'
-                          : 'Nao certificado',
+                          ? t.profileCertifiedValue
+                          : t.profileNotCertifiedValue,
                       valueColor: (worker?.shelterCertified ?? false)
                           ? AppColors.accent
                           : AppColors.textSecondary,
@@ -227,21 +359,21 @@ class WorkerProfileScreen extends ConsumerWidget {
               ),
               const SizedBox(height: 16),
 
-              // Skills — seleção por chips predefinidos
               if (worker != null) ...[
                 _SkillsSection(worker: worker),
                 const SizedBox(height: 16),
               ],
 
-              // Conta de recebimento (Stripe Connect)
               const BankAccountSection(),
               const SizedBox(height: 16),
 
-              // Availability toggle
+              const LanguageSelectorWidget(),
+              const SizedBox(height: 16),
+
               OxButton(
                 label: (worker?.available ?? false)
-                    ? 'Marcar como Indisponivel'
-                    : 'Marcar como Disponivel',
+                    ? t.profileMarkUnavailable
+                    : t.profileMarkAvailable,
                 variant: (worker?.available ?? false)
                     ? OxButtonVariant.secondary
                     : OxButtonVariant.primary,
@@ -264,6 +396,7 @@ class _SkillsSection extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final t = AppLocalizations.of(context)!;
     final skillsAsync = ref.watch(predefinedSkillsProvider);
     final notifierState = ref.watch(workerProfileNotifierProvider);
     final isSaving = notifierState.isLoading;
@@ -289,10 +422,10 @@ class _SkillsSection extends ConsumerWidget {
             children: [
               Row(
                 children: [
-                  const Expanded(
+                  Expanded(
                     child: Text(
-                      'HABILIDADES',
-                      style: TextStyle(
+                      t.profileSkillsSection,
+                      style: const TextStyle(
                         color: AppColors.textSecondary,
                         fontSize: 12,
                         fontWeight: FontWeight.w600,
@@ -363,9 +496,9 @@ class _SkillsSection extends ConsumerWidget {
               ),
               if (selected.isEmpty) ...[
                 const SizedBox(height: 10),
-                const Text(
-                  'Toque nas habilidades para selecioná-las',
-                  style: TextStyle(
+                Text(
+                  t.profileSkillsHint,
+                  style: const TextStyle(
                     color: AppColors.textDisabled,
                     fontSize: 12,
                     fontFamily: 'Inter',

@@ -75,8 +75,7 @@ class ConnectStatus {
   }
 }
 
-final connectStatusProvider =
-    FutureProvider.autoDispose<ConnectStatus>((ref) async {
+final connectStatusProvider = FutureProvider<ConnectStatus>((ref) async {
   final api = ref.watch(apiClientProvider);
   final res = await api.dio.get(ApiEndpoints.paymentsConnectStatus);
   return ConnectStatus.fromJson(res.data as Map<String, dynamic>);

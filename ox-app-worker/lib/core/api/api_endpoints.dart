@@ -47,6 +47,8 @@ class ApiEndpoints {
   // FCM
   static const usersFcmToken = '/users/fcm-token';
   static const usersDeviceTokens = '/users/device-tokens';
+  static const usersPreferredLocale = '/users/preferred-locale';
+  static const usersAvatarUrl = '/users/avatar-url';
 
   static const notifications = '/notifications';
   static const notificationsUnreadCount = '/notifications/unread-count';

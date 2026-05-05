@@ -5,24 +5,40 @@ import 'package:intl/intl.dart';
 import 'package:lucide_flutter/lucide_flutter.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../core/theme/app_colors.dart';
+import '../../core/widgets/profile_avatar.dart';
 import '../../core/widgets/ox_app_bar.dart';
 import '../../core/widgets/ox_badge.dart';
 import '../../core/widgets/ox_button.dart';
 import '../../core/widgets/ox_empty_state.dart';
 import '../../core/widgets/ox_loading.dart';
+import '../../l10n/app_localizations.dart';
+import '../notifications/notifications_provider.dart';
 import '../profile/profile_provider.dart';
 import 'jobs_provider.dart';
+
+/// UI flag: when `false`, workers only see jobs already assigned to them.
+/// Set to `true` to show the "available jobs for you" list again.
+const bool kShowAvailableJobsForWorker = false;
 
 class JobsDashboardScreen extends ConsumerWidget {
   const JobsDashboardScreen({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final availableAsync = ref.watch(availableJobsProvider);
+    final t = AppLocalizations.of(context)!;
     final activeAsync = ref.watch(activeJobsProvider);
     final workerAsync = ref.watch(workerProfileProvider);
+    final unreadAsync = ref.watch(unreadNotificationsCountProvider);
+    final unread =
+        unreadAsync.maybeWhen(data: (c) => c, orElse: () => 0);
     final user = Supabase.instance.client.auth.currentUser;
-    final name = user?.email?.split('@').first ?? 'Trabalhador';
+    final w = workerAsync.valueOrNull;
+    final name = (w?.name?.isNotEmpty == true
+            ? w!.name
+            : w?.email?.isNotEmpty == true
+                ? w!.email
+                : user?.email) ??
+        t.defaultWorkerName;
 
     return Scaffold(
       appBar: OxAppBar(
@@ -30,31 +46,34 @@ class JobsDashboardScreen extends ConsumerWidget {
         actions: [
           Padding(
             padding: const EdgeInsets.only(right: 8),
-            child: CircleAvatar(
-              radius: 16,
-              backgroundColor: AppColors.accent.withValues(alpha: 0.15),
-              child: Text(
-                name.substring(0, 1).toUpperCase(),
-                style: const TextStyle(
-                  color: AppColors.accent,
-                  fontWeight: FontWeight.w700,
-                  fontSize: 13,
-                  fontFamily: 'Inter',
-                ),
-              ),
+            child: ProfileAvatar(
+              radius: 20,
+              imageUrl: w?.avatarUrl,
+              label: name,
+              onTap: () => context.go('/profile'),
             ),
           ),
-          IconButton(
-            icon: const Icon(LucideIcons.bell, size: 20),
-            color: AppColors.textSecondary,
-            onPressed: () {},
+          Padding(
+            padding: const EdgeInsets.only(right: 12),
+            child: Badge(
+              isLabelVisible: unread > 0,
+              label: Text(unread > 99 ? '99+' : '$unread'),
+              offset: const Offset(-10, -2),
+              child: IconButton(
+                icon: const Icon(LucideIcons.bell, size: 24),
+                color: AppColors.textSecondary,
+                onPressed: () => context.push('/notifications'),
+              ),
+            ),
           ),
         ],
       ),
       body: RefreshIndicator(
         color: AppColors.accent,
         onRefresh: () async {
-          ref.invalidate(availableJobsProvider);
+          if (kShowAvailableJobsForWorker) {
+            ref.invalidate(availableJobsProvider);
+          }
           ref.invalidate(activeJobsProvider);
           ref.invalidate(workerProfileProvider);
         },
@@ -64,14 +83,9 @@ class JobsDashboardScreen extends ConsumerWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Worker status card
-              _WorkerStatusCard(workerAsync: workerAsync),
-              const SizedBox(height: 28),
-
-              // Active jobs
-              const Text(
-                'MEUS JOBS ATIVOS',
-                style: TextStyle(
+              Text(
+                t.jobsActiveSection,
+                style: const TextStyle(
                   color: AppColors.textSecondary,
                   fontSize: 12,
                   fontWeight: FontWeight.w600,
@@ -84,10 +98,10 @@ class JobsDashboardScreen extends ConsumerWidget {
                 loading: () => const OxJobCardSkeleton(),
                 error: (_, __) => const SizedBox.shrink(),
                 data: (jobs) => jobs.isEmpty
-                    ? const OxEmptyState(
+                    ? OxEmptyState(
                         icon: LucideIcons.zap,
-                        title: 'Nenhum job ativo',
-                        subtitle: 'Aceite um job disponivel para comecar.',
+                        title: t.jobsNoActive,
+                        subtitle: t.jobsNoActiveSubtitle,
                       )
                     : Column(
                         children: jobs
@@ -95,49 +109,7 @@ class JobsDashboardScreen extends ConsumerWidget {
                             .toList(),
                       ),
               ),
-
-              const SizedBox(height: 28),
-
-              // Available jobs
-              const Text(
-                'JOBS DISPONIVEIS PARA VOCE',
-                style: TextStyle(
-                  color: AppColors.textSecondary,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  letterSpacing: 1.2,
-                  fontFamily: 'Inter',
-                ),
-              ),
-              const SizedBox(height: 12),
-              availableAsync.when(
-                loading: () => Column(
-                  children: List.generate(
-                      2, (_) => const Padding(
-                        padding: EdgeInsets.only(bottom: 12),
-                        child: OxJobCardSkeleton(),
-                      )),
-                ),
-                error: (_, __) => const Center(
-                  child: Text(
-                    'Erro ao carregar jobs',
-                    style: TextStyle(
-                        color: AppColors.error, fontFamily: 'Inter'),
-                  ),
-                ),
-                data: (jobs) => jobs.isEmpty
-                    ? const OxEmptyState(
-                        icon: LucideIcons.briefcase,
-                        title: 'Sem jobs disponiveis',
-                        subtitle:
-                            'Novos projetos aparecerão aqui quando houver compatibilidade com o seu perfil.',
-                      )
-                    : Column(
-                        children: jobs
-                            .map((j) => _AvailableJobCard(job: j))
-                            .toList(),
-                      ),
-              ),
+              if (kShowAvailableJobsForWorker) const _AvailableJobsSection(),
             ],
           ),
         ),
@@ -146,115 +118,54 @@ class JobsDashboardScreen extends ConsumerWidget {
   }
 }
 
-class _WorkerStatusCard extends ConsumerWidget {
-  const _WorkerStatusCard({required this.workerAsync});
-
-  final AsyncValue<WorkerProfileModel?> workerAsync;
+class _AvailableJobsSection extends ConsumerWidget {
+  const _AvailableJobsSection();
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.divider),
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                workerAsync.when(
-                  loading: () => const OxShimmerBox(width: 80, height: 14),
-                  error: (_, __) => const SizedBox.shrink(),
-                  data: (w) => Row(
-                    children: [
-                      Container(
-                        width: 8,
-                        height: 8,
-                        decoration: BoxDecoration(
-                          color: (w?.available ?? false)
-                              ? AppColors.accent
-                              : AppColors.textDisabled,
-                          shape: BoxShape.circle,
-                        ),
-                      ),
-                      const SizedBox(width: 6),
-                      Text(
-                        (w?.available ?? false) ? 'Disponivel' : 'Indisponivel',
-                        style: TextStyle(
-                          color: (w?.available ?? false)
-                              ? AppColors.accent
-                              : AppColors.textSecondary,
-                          fontWeight: FontWeight.w600,
-                          fontFamily: 'Inter',
-                          fontSize: 13,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 6),
-                workerAsync.when(
-                  loading: () => const OxShimmerBox(width: 100, height: 12),
-                  error: (_, __) => const SizedBox.shrink(),
-                  data: (w) => Row(
-                    children: [
-                      const Icon(LucideIcons.star,
-                          size: 14, color: AppColors.warning),
-                      const SizedBox(width: 4),
-                      Text(
-                        'Avaliacao: ${w?.rating.toStringAsFixed(1) ?? '-'}',
-                        style: const TextStyle(
-                          color: AppColors.textSecondary,
-                          fontFamily: 'Inter',
-                          fontSize: 13,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
+    final t = AppLocalizations.of(context)!;
+    final availableAsync = ref.watch(availableJobsProvider);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const SizedBox(height: 28),
+        Text(
+          t.jobsAvailableSection,
+          style: const TextStyle(
+            color: AppColors.textSecondary,
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+            letterSpacing: 1.2,
+            fontFamily: 'Inter',
           ),
-          workerAsync.when(
-            loading: () => const SizedBox.shrink(),
-            error: (_, __) => const SizedBox.shrink(),
-            data: (w) => GestureDetector(
-              onTap: () => ref
-                  .read(workerProfileNotifierProvider.notifier)
-                  .toggleAvailability(!(w?.available ?? false)),
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 200),
-                width: 52,
-                height: 28,
-                decoration: BoxDecoration(
-                  color: (w?.available ?? false)
-                      ? AppColors.accent
-                      : AppColors.divider,
-                  borderRadius: BorderRadius.circular(14),
-                ),
-                child: Align(
-                  alignment: (w?.available ?? false)
-                      ? Alignment.centerRight
-                      : Alignment.centerLeft,
-                  child: Container(
-                    margin: const EdgeInsets.all(3),
-                    width: 22,
-                    height: 22,
-                    decoration: const BoxDecoration(
-                      color: AppColors.textPrimary,
-                      shape: BoxShape.circle,
-                    ),
-                  ),
-                ),
-              ),
-            ),
+        ),
+        const SizedBox(height: 12),
+        availableAsync.when(
+          loading: () => Column(
+            children: List.generate(
+                2,
+                (_) => const Padding(
+                      padding: EdgeInsets.only(bottom: 12),
+                      child: OxJobCardSkeleton(),
+                    )),
           ),
-        ],
-      ),
+          error: (_, __) => OxEmptyState(
+            icon: LucideIcons.briefcase,
+            title: t.jobsNoAvailable,
+            subtitle: t.jobsNoAvailableSubtitle,
+          ),
+          data: (jobs) => jobs.isEmpty
+              ? OxEmptyState(
+                  icon: LucideIcons.briefcase,
+                  title: t.jobsNoAvailable,
+                  subtitle: t.jobsNoAvailableSubtitle,
+                )
+              : Column(
+                  children:
+                      jobs.map((j) => _AvailableJobCard(job: j)).toList(),
+                ),
+        ),
+      ],
     );
   }
 }
@@ -266,6 +177,7 @@ class _ActiveJobCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final t = AppLocalizations.of(context)!;
     final activePhase = job.activePhase;
 
     return GestureDetector(
@@ -295,7 +207,7 @@ class _ActiveJobCard extends StatelessWidget {
                   ),
                 ),
                 OxBadge(
-                  label: _jobStatusLabel(job.status),
+                  label: _jobStatusLabel(t, job.status),
                   status: phaseStatusToBadge(job.status),
                 ),
               ],
@@ -319,7 +231,7 @@ class _ActiveJobCard extends StatelessWidget {
             if (activePhase != null) ...[
               const SizedBox(height: 12),
               Text(
-                'Fase ${activePhase.order} — ${activePhase.name}',
+                t.phaseOrderAndName(activePhase.order, activePhase.name),
                 style: const TextStyle(
                   color: AppColors.textSecondary,
                   fontSize: 13,
@@ -329,10 +241,10 @@ class _ActiveJobCard extends StatelessWidget {
             ],
             const SizedBox(height: 16),
             OxButton(
-              label: 'Continuar execucao',
+              label: t.jobContinueExecution,
               icon: LucideIcons.zap,
               onPressed: activePhase != null
-                  ? () => context.push('/execution/${activePhase.id}')
+                  ? () => context.go('/execution')
                   : () => context.push('/jobs/${job.id}'),
             ),
           ],
@@ -341,11 +253,11 @@ class _ActiveJobCard extends StatelessWidget {
     );
   }
 
-  String _jobStatusLabel(String status) {
+  String _jobStatusLabel(AppLocalizations t, String status) {
     switch (status) {
-      case 'in_execution': return 'Em execucao';
-      case 'active_escrow': return 'Escrow ativo';
-      case 'contract_signed': return 'Contrato assinado';
+      case 'in_execution': return t.statusInExecution;
+      case 'active_escrow': return t.statusActiveEscrow;
+      case 'contract_signed': return t.statusContractSigned;
       default: return status;
     }
   }
@@ -358,6 +270,7 @@ class _AvailableJobCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final t = AppLocalizations.of(context)!;
     final fmt = DateFormat('dd/MM/yyyy');
     final matchScore = job.matchScore ?? 85;
 
@@ -424,12 +337,11 @@ class _AvailableJobCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 12),
-          // Match score
           Row(
             children: [
-              const Text(
-                'Compatibilidade: ',
-                style: TextStyle(
+              Text(
+                t.jobCompatibility,
+                style: const TextStyle(
                   color: AppColors.textSecondary,
                   fontSize: 12,
                   fontFamily: 'Inter',
@@ -457,7 +369,7 @@ class _AvailableJobCard extends StatelessWidget {
           ),
           const SizedBox(height: 16),
           OxButton(
-            label: 'Ver detalhes',
+            label: t.jobViewDetails,
             variant: OxButtonVariant.secondary,
             onPressed: () => context.push('/jobs/${job.id}'),
           ),

@@ -60,3 +60,24 @@ export function useAssignWorker() {
     },
   })
 }
+
+export interface UpdateWorkerInput {
+  available?: boolean
+  shelterCertified?: boolean
+  skills?: string[]
+}
+
+export function useUpdateWorker(workerId: string) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (input: UpdateWorkerInput) => {
+      const { data } = await api.patch(`/workers/${workerId}`, input)
+      return data as Worker
+    },
+    onSuccess: (data) => {
+      qc.setQueryData(['workers', workerId], data)
+      qc.invalidateQueries({ queryKey: ['workers'] })
+      qc.invalidateQueries({ queryKey: ['candidates'] })
+    },
+  })
+}

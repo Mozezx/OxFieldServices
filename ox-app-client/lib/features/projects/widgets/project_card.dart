@@ -4,19 +4,20 @@ import 'package:percent_indicator/percent_indicator.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/widgets/ox_badge.dart';
 import '../project_provider.dart';
+import '../../../l10n/app_localizations.dart';
 
-String _statusLabel(String status) {
+String _statusLabel(BuildContext context, String status) {
+  final l = AppLocalizations.of(context)!;
   switch (status) {
-    case 'draft': return 'Rascunho';
-    case 'in_validation': return 'Em Validação';
-    case 'matched': return 'Match feito';
-    case 'contract_signed': return 'Contrato assinado';
-    case 'active_escrow': return 'Escrow ativo';
-    case 'in_execution': return 'Em Execução';
-    case 'closing': return 'Encerrando';
-    case 'closed': return 'Concluído';
-    case 'rejected': return 'Rejeitado';
-    default: return 'Aguardando match';
+    case 'draft': return l.statusDraft;
+    case 'matched': return l.statusMatched;
+    case 'contract_signed': return l.statusContractSigned;
+    case 'active_escrow': return l.statusActiveEscrow;
+    case 'in_execution': return l.statusInExecution;
+    case 'closing': return l.statusClosing;
+    case 'closed': return l.statusClosed;
+    case 'rejected': return l.statusRejected;
+    default: return l.statusAwaitingMatch;
   }
 }
 
@@ -27,6 +28,7 @@ class ProjectCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
     final progress = project.phases.isEmpty
         ? 0.0
         : project.validatedPhases / project.phases.length;
@@ -60,7 +62,7 @@ class ProjectCard extends StatelessWidget {
                 ),
                 const SizedBox(width: 8),
                 OxBadge(
-                  label: _statusLabel(project.status),
+                  label: _statusLabel(context, project.status),
                   status: projectStatusToBadge(project.status),
                 ),
               ],
@@ -77,7 +79,7 @@ class ProjectCard extends StatelessWidget {
               ),
               const SizedBox(height: 8),
               Text(
-                'Fase ${project.validatedPhases}/${project.phases.length}',
+                l.projectCardPhase(project.validatedPhases, project.phases.length),
                 style: const TextStyle(
                   color: AppColors.textSecondary,
                   fontSize: 12,

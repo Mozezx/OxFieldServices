@@ -3,8 +3,9 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 enum UserRole {
@@ -15,7 +16,6 @@ enum UserRole {
 
 enum ProjectStatus {
   draft
-  in_validation
   matched
   contract_signed
   active_escrow
@@ -64,6 +64,7 @@ enum NotificationType {
   worker_invited
   worker_assigned
   worker_rated
+  invite_redeemed
 }
 
 enum DevicePlatform {
@@ -74,13 +75,15 @@ enum DevicePlatform {
 
 model User {
   id               String   @id @default(uuid())
-  authId           String   @unique // references auth.users.id (Supabase Auth)
+  authId           String   @unique // references auth.users.id; may be "pending:<uuid>" for admin-created stubs
   role             UserRole
   name             String
   email            String   @unique
   phone            String?
   fcmToken         String?
+  preferredLocale  String   @default("pt") // pt | en | es | nl — sync from apps / admin
   stripeCustomerId String? // referência ao Customer Stripe (cards salvos)
+  avatarUrl        String? // URL pública Supabase Storage (bucket avatars/{authId}/...)
   createdAt        DateTime @default(now())
 
   projects      Project[]
@@ -89,6 +92,7 @@ model User {
   ratings       WorkerRating[]
   notifications Notification[]
   deviceTokens  DeviceToken[]
+  invites       ProjectInvite[] @relation("ClientInvites")
 }
 
 model Worker {
@@ -119,6 +123,24 @@ model Project {
 
   phases   ProjectPhase[]
   contract Contract?
+  invites  ProjectInvite[]
+}
+
+model ProjectInvite {
+  id          String    @id @default(uuid())
+  projectId   String
+  project     Project   @relation(fields: [projectId], references: [id])
+  clientId    String
+  client      User      @relation(fields: [clientId], references: [id], name: "ClientInvites")
+  tokenHash   String    @unique
+  expiresAt   DateTime
+  usedAt      DateTime?
+  revokedAt   DateTime?
+  createdById String
+  createdAt   DateTime  @default(now())
+
+  @@index([projectId])
+  @@index([clientId])
 }
 
 model ProjectPhase {

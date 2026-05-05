@@ -7,7 +7,22 @@
       "Bash(curl -s -X POST https://pmsccdvhhhokormlvxww.supabase.co/auth/v1/signup -H 'apikey: sb_publishable_XJNsXk0drxrzDqcWPCU3bw_ifoozFyx' -H 'Content-Type: application/json' -d '{\"email\":\"mocalazer@gmail.com\",\"password\":\"Teste@123\"}')",
       "Bash(curl -s -X POST http://localhost:3000/auth/sync -H 'Authorization: Bearer eyJhbGciOiJFUzI1NiIsImtpZCI6IjY4YTc4ZDY2LWUyMWUtNDk5OS04NjRhLTMzMDc2ZWFlNzhlOSIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJodHRwczovL3Btc2NjZHZoaGhva29ybWx2eHd3LnN1cGFiYXNlLmNvL2F1dGgvdjEiLCJzdWIiOiIxZmFmYmExMS1jYjRmLTQ2YzAtYTc5My0zMzk0NzY5ZWJiN2YiLCJhdWQiOiJhdXRoZW50aWNhdGVkIiwiZXhwIjoxNzc3NTkxNTY3LCJpYXQiOjE3Nzc1ODc5NjcsImVtYWlsIjoibW9jYWxhemVyQGdtYWlsLmNvbSIsInBob25lIjoiIiwiYXBwX21ldGFkYXRhIjp7InByb3ZpZGVyIjoiZW1haWwiLCJwcm92aWRlcnMiOlsiZW1haWwiXX0sInVzZXJfbWV0YWRhdGEiOnsiZW1haWwiOiJtb2NhbGF6ZXJAZ21haWwuY29tIiwiZW1haWxfdmVyaWZpZWQiOnRydWUsInBob25lX3ZlcmlmaWVkIjpmYWxzZSwic3ViIjoiMWZhZmJhMTEtY2I0Zi00NmMwLWE3OTMtMzM5NDc2OWViYjdmIn0sInJvbGUiOiJhdXRoZW50aWNhdGVkIiwiYWFsIjoiYWFsMSIsImFtciI6W3sibWV0aG9kIjoicGFzc3dvcmQiLCJ0aW1lc3RhbXAiOjE3Nzc1ODc5Njd9XSwic2Vzc2lvbl9pZCI6ImNlZjY3YTFkLTU1YTktNDRjNC1hYzA0LTljZmRjYjc4ZDIxOSIsImlzX2Fub255bW91cyI6ZmFsc2V9.S2iImEmqSvm34Ez8qlSM-0jo9JSt49qZB98pKSBKJe9UqBbR185Lk6qOIWUs0Q8dBgXqg2XGzZY-mE2lBrvcUA' -H 'Content-Type: application/json' -d '{\"name\":\"Mocalaze Worker\",\"role\":\"worker\"}')",
       "Bash(curl -s \"https://pmsccdvhhhokormlvxww.supabase.co/auth/v1/.well-known/jwks.json\")",
-      "Bash(git add *)"
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)",
+      "Bash(git push *)",
+      "Bash(flutter gen-l10n *)",
+      "Bash(flutter analyze *)",
+      "Bash(sed -i 's|import '\\\\''package:flutter_gen/gen_l10n/app_localizations.dart'\\\\'';|import '\\\\''../../l10n/app_localizations.dart'\\\\'';|g' lib/features/auth/forgot_password_screen.dart lib/features/auth/login_screen.dart lib/features/auth/register_screen.dart lib/features/auth/reset_password_screen.dart lib/features/notifications/notifications_screen.dart lib/features/onboarding/onboarding_screen.dart lib/features/phases/validate_phase_screen.dart lib/features/profile/profile_screen.dart lib/features/projects/create_project_screen.dart lib/features/projects/projects_list_screen.dart lib/features/projects/project_detail_screen.dart)",
+      "Bash(sed -i 's|import '\\\\''package:flutter_gen/gen_l10n/app_localizations.dart'\\\\'';|import '\\\\''../../../l10n/app_localizations.dart'\\\\'';|g' lib/features/projects/widgets/project_card.dart)",
+      "Bash(Get-ChildItem -Path \"c:\\\\Users\\\\Mozzy\\\\Documents\\\\projetos\\\\ox-field-services-3\\\\ox-app-worker\" -Force)",
+      "Bash(Select-Object Name, Mode)",
+      "Bash(Get-ChildItem -Path \"c:\\\\Users\\\\Mozzy\\\\Documents\\\\projetos\\\\ox-field-services-3\" -Directory)",
+      "Bash(Select-Object Name)",
+      "Bash(awk '{print $NF}')",
+      "Bash(Get-ChildItem -Force)"
+    ],
+    "additionalDirectories": [
+      "c:\\Users\\Mozzy\\.claude\\projects\\c--Users-Mozzy-Documents-projetos-ox-field-services-3\\memory"
     ]
   },
   "enableAllProjectMcpServers": true

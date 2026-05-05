@@ -1,0 +1,26 @@
+version: '3.9'
+
+services:
+
+  ox-api:
+    build:
+      dockerfile: Dockerfile
+    image: ghcr.io/mozezx/ox-backend:${VERSION:-latest}
+    volumes: []
+    environment:
+      NODE_ENV: production
+    deploy:
+      restart_policy:
+        condition: on-failure
+        max_attempts: 3
+      resources:
+        limits:
+          memory: 512M
+          cpus: '0.5'
+
+  redis:
+    image: redis:7-alpine
+    ports: []
+
+  redis-commander: !reset {}
+  stripe-cli: !reset {}

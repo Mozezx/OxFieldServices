@@ -2,83 +2,123 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lucide_flutter/lucide_flutter.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
-import '../../features/notifications/notifications_provider.dart';
+import '../../core/theme/app_colors.dart';
+import '../../core/widgets/profile_avatar.dart';
+import '../../features/profile/profile_provider.dart';
+import '../../features/profile/stripe_connect_provider.dart';
+import '../../l10n/app_localizations.dart';
 
 class MainShell extends ConsumerWidget {
-  const MainShell({super.key, required this.child});
+  const MainShell({super.key, required this.navigationShell});
 
-  final Widget child;
+  final StatefulNavigationShell navigationShell;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final location = GoRouterState.of(context).matchedLocation;
-    final index = _indexFromLocation(location);
-    final unreadAsync = ref.watch(unreadNotificationsCountProvider);
-    final unread = unreadAsync.maybeWhen(data: (c) => c, orElse: () => 0);
+    final t = AppLocalizations.of(context)!;
+
+    final connectAsync = ref.watch(connectStatusProvider);
+    final showStripeBanner = connectAsync.maybeWhen(
+      data: (s) => !s.isReady,
+      orElse: () => false,
+    );
+    final workerAsync = ref.watch(workerProfileProvider);
+    final w = workerAsync.valueOrNull;
+    final user = Supabase.instance.client.auth.currentUser;
+    final label = (w?.name?.isNotEmpty == true
+            ? w!.name
+            : w?.email?.isNotEmpty == true
+                ? w!.email
+                : user?.email) ??
+        '';
+
+    Widget profileIcon({required bool active}) {
+      return ProfileAvatar(
+        radius: 12,
+        imageUrl: w?.avatarUrl,
+        label: label,
+        emphasizeBorder: active,
+      );
+    }
+
+    void goProfile() {
+      navigationShell.goBranch(3);
+    }
 
     return Scaffold(
-      body: child,
+      body: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          if (showStripeBanner)
+            SafeArea(
+              bottom: false,
+              left: false,
+              right: false,
+              top: true,
+              minimum: EdgeInsets.zero,
+              child: Material(
+                color: AppColors.warning.withValues(alpha: 0.14),
+                child: InkWell(
+                  onTap: goProfile,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 10,
+                    ),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            t.stripeConnectBannerMessage,
+                            style: const TextStyle(
+                              fontSize: 13,
+                              color: AppColors.textPrimary,
+                            ),
+                          ),
+                        ),
+                        Text(
+                          t.stripeConnectBannerCta,
+                          style: const TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.accent,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          Expanded(child: navigationShell),
+        ],
+      ),
       bottomNavigationBar: BottomNavigationBar(
         type: BottomNavigationBarType.fixed,
-        currentIndex: index < 0 ? 0 : index,
-        onTap: (i) => _onTabTap(context, i),
+        currentIndex: navigationShell.currentIndex,
+        onTap: navigationShell.goBranch,
         items: [
-          const BottomNavigationBarItem(
-            icon: Icon(LucideIcons.briefcase),
-            label: 'Jobs',
-          ),
-          const BottomNavigationBarItem(
-            icon: Icon(LucideIcons.zap),
-            label: 'Em Execução',
+          BottomNavigationBarItem(
+            icon: const Icon(LucideIcons.briefcase),
+            label: t.navJobs,
           ),
           BottomNavigationBarItem(
-            icon: Badge(
-              isLabelVisible: unread > 0,
-              label: Text(unread > 99 ? '99+' : '$unread'),
-              child: const Icon(LucideIcons.bell),
-            ),
-            label: 'Notificações',
+            icon: const Icon(LucideIcons.zap),
+            label: t.navExecution,
           ),
-          const BottomNavigationBarItem(
-            icon: Icon(LucideIcons.wallet),
-            label: 'Pagamentos',
+          BottomNavigationBarItem(
+            icon: const Icon(LucideIcons.wallet),
+            label: t.navPayments,
           ),
-          const BottomNavigationBarItem(
-            icon: Icon(LucideIcons.user),
-            label: 'Perfil',
+          BottomNavigationBarItem(
+            icon: profileIcon(active: false),
+            activeIcon: profileIcon(active: true),
+            label: t.navProfile,
           ),
         ],
       ),
     );
-  }
-
-  int _indexFromLocation(String location) {
-    if (location.startsWith('/home') || location.startsWith('/jobs')) return 0;
-    if (location.startsWith('/execution')) return 1;
-    if (location.startsWith('/notifications')) return 2;
-    if (location.startsWith('/payments')) return 3;
-    if (location.startsWith('/profile')) return 4;
-    return 0;
-  }
-
-  void _onTabTap(BuildContext context, int index) {
-    switch (index) {
-      case 0:
-        context.go('/home');
-        break;
-      case 1:
-        context.go('/execution');
-        break;
-      case 2:
-        context.go('/notifications');
-        break;
-      case 3:
-        context.go('/payments');
-        break;
-      case 4:
-        context.go('/profile');
-        break;
-    }
   }
 }
